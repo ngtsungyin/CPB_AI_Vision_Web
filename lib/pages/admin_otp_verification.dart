@@ -402,14 +402,14 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
                 Icon(
                   Icons.info_outline,
                   size: 20,
-                  color: Colors.grey[600],
+                  color: Colors.red[600],
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'We sent a 6-digit verification code to your email',
                     style: TextStyle(
-                      color: Colors.grey[700],
+                      color: Colors.black,
                       fontSize: isMobile ? 13 : 14,
                       height: 1.4,
                     ),
@@ -431,7 +431,7 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
             child: ElevatedButton(
               onPressed: _isVerifying ? null : _verifyOtp,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
+                backgroundColor: Colors.blue[700],
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -480,7 +480,7 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
                 TextButton(
                   onPressed: _isResending ? null : _resendOtp,
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green[700],
+                    foregroundColor: Colors.red[700],
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   child: _isResending
@@ -526,7 +526,7 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
                 style: TextStyle(
                   fontSize: isMobile ? 20 : 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green[700],
+                  color: Colors.black,
                 ),
                 decoration: InputDecoration(
                   counterText: '',
