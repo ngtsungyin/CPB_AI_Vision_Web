@@ -151,17 +151,51 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Get screen size for responsive calculations
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final isTablet = screenSize.width >= 600 && screenSize.width < 900;
+    
+    // Calculate responsive card width
+    double cardWidth;
+    if (isMobile) {
+      cardWidth = screenSize.width * 0.9; // 90% on mobile
+    } else if (isTablet) {
+      cardWidth = 500; // Fixed width on tablet
+    } else {
+      cardWidth = 450; // Fixed width on desktop
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildHeaderSection(),
-              const SizedBox(height: 48),
-              _buildLoginForm(),
+              // Header section with responsive sizing
+              _buildHeaderSection(isMobile),
+              SizedBox(height: isMobile ? 32 : 48),
+              // Login card with responsive width
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: cardWidth,
+                  minWidth: isMobile ? screenSize.width * 0.9 : 400,
+                ),
+                child: _buildLoginForm(isMobile),
+              ),
+              // Footer credit (optional)
+              if (!isMobile) ...[
+                const SizedBox(height: 32),
+                Text(
+                  'CPB AI Vision • Secure Admin Access',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -169,48 +203,79 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     );
   }
 
-  Widget _buildHeaderSection() {
+  Widget _buildHeaderSection(bool isMobile) {
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: isMobile ? 70 : 90,
+          height: isMobile ? 70 : 90,
           decoration: BoxDecoration(
-            color: Colors.blue,
-            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.blue[700]!, Colors.blue[400]!],
+            ),
+            borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 40),
+          child: Icon(
+            Icons.admin_panel_settings,
+            color: Colors.white,
+            size: isMobile ? 35 : 45,
+          ),
         ),
         const SizedBox(height: 16),
         Text(
-          'Cocoa Farm Admin',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          'CPB AI Vision Admin',
+          style: TextStyle(
+            fontSize: isMobile ? 24 : 28,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
+            letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          'Two-Factor Authentication',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.grey[600],
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Two-Factor Authentication',
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 14,
+              color: Colors.blue[800],
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLoginForm() {
+  Widget _buildLoginForm(bool isMobile) {
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 24 : 32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.05),
+            blurRadius: 30,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -218,12 +283,29 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         key: _formKey,
         child: Column(
           children: [
+            // Email field
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Admin Email',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: isMobile ? 16 : 18,
+                ),
               ),
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
@@ -235,21 +317,38 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             ),
             const SizedBox(height: 16),
 
+            // Password field
             TextFormField(
               controller: _passwordController,
               decoration: InputDecoration(
                 labelText: 'Password',
-                prefixIcon: const Icon(Icons.lock),
-                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock_outline),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
+                ),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                   ),
                   onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: isMobile ? 16 : 18,
                 ),
               ),
               obscureText: _obscurePassword,
@@ -262,49 +361,81 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             ),
             const SizedBox(height: 24),
 
+            // Login button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: isMobile ? 50 : 54,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _verifyAdminAndSendOtp,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[700],
                   foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 24,
+                  height: 24,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2,
+                    strokeWidth: 2.5,
                     valueColor: AlwaysStoppedAnimation(Colors.white),
                   ),
                 )
-                    : const Text(
+                    : Text(
                   'Send OTP to Email',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: isMobile ? 15 : 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+
+            // Security notice
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange[100]!),
               ),
-              child: const Row(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.security, color: Colors.orange),
-                  SizedBox(width: 8),
+                  Icon(
+                    Icons.security,
+                    color: Colors.orange[700],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Password + OTP verification required for admin access',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Two-Factor Authentication',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange[800],
+                            fontSize: isMobile ? 13 : 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Password + OTP verification required for admin access',
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontSize: isMobile ? 12 : 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
