@@ -130,27 +130,62 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('New OTP Generated'),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_read, color: Colors.green),
+            SizedBox(width: 8),
+            Text('New OTP Generated'),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('New OTP for testing:'),
+            const Text('A new verification code has been sent to:'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                widget.email,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green[200]!),
               ),
-              child: Text(
-                otp,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                  letterSpacing: 4,
-                ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Your OTP Code:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    otp,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                      letterSpacing: 8,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -158,7 +193,10 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.blue[700],
+            ),
+            child: const Text('Continue'),
           ),
         ],
       ),
@@ -169,7 +207,7 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const AdminPanel()),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -182,7 +220,7 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: const Text('Try Again'),
           ),
         ],
       ),
@@ -195,107 +233,67 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Get screen size for responsive calculations
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+    final isTablet = screenSize.width >= 600 && screenSize.width < 900;
+    
+    // Calculate responsive card width
+    double cardWidth;
+    if (isMobile) {
+      cardWidth = screenSize.width * 0.9; // 90% on mobile
+    } else if (isTablet) {
+      cardWidth = 500; // Fixed width on tablet
+    } else {
+      cardWidth = 450; // Fixed width on desktop
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.grey[700],
+          ),
           onPressed: _goBack,
         ),
-        title: const Text('Verify OTP'),
+        title: Text(
+          'Verify OTP',
+          style: TextStyle(
+            color: Colors.grey[800],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Main verification card
               Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  shape: BoxShape.circle,
+                constraints: BoxConstraints(
+                  maxWidth: cardWidth,
+                  minWidth: isMobile ? screenSize.width * 0.9 : 400,
                 ),
-                child: const Icon(
-                  Icons.verified_user,
-                  color: Colors.green,
-                  size: 40,
-                ),
+                child: _buildVerificationCard(isMobile),
               ),
-              const SizedBox(height: 32),
-
-              Text(
-                'Enter OTP Code',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Text(
-                'We sent a 6-digit verification code to:',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              Text(
-                widget.email,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              _buildOtpInputSection(),
-              const SizedBox(height: 32),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isVerifying ? null : _verifyOtp,
-                  child: _isVerifying
-                      ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
-                    ),
-                  )
-                      : const Text(
-                    'Verify & Access Admin Panel',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              // Footer credit (optional)
+              if (!isMobile) ...[
+                const SizedBox(height: 32),
+                Text(
+                  'CPB AI Vision • Secure Two-Factor Authentication',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Didn't receive the code?",
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  TextButton(
-                    onPressed: _isResending ? null : _resendOtp,
-                    child: _isResending
-                        ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                        : const Text('Resend Code'),
-                  ),
-                ],
-              ),
+              ],
             ],
           ),
         ),
@@ -303,39 +301,273 @@ class _AdminOtpVerificationPageState extends State<AdminOtpVerificationPage> {
     );
   }
 
-  Widget _buildOtpInputSection() {
+  Widget _buildVerificationCard(bool isMobile) {
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 24 : 32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.green.withOpacity(0.05),
+            blurRadius: 30,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Icon section with gradient
+          Container(
+            width: isMobile ? 70 : 80,
+            height: isMobile ? 70 : 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.green[600]!, Colors.green[400]!],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.verified_user_rounded,
+              color: Colors.white,
+              size: isMobile ? 35 : 40,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Title
+          Text(
+            'Enter OTP Code',
+            style: TextStyle(
+              fontSize: isMobile ? 24 : 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Email info
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.email_outlined,
+                  size: 16,
+                  color: Colors.blue[700],
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.email,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blue[800],
+                    fontSize: isMobile ? 13 : 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Instruction text
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 20,
+                  color: Colors.red[600],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'We sent a 6-digit verification code to your email',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: isMobile ? 13 : 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // OTP input fields
+          _buildOtpInputSection(isMobile),
+          const SizedBox(height: 32),
+
+          // Verify button
+          SizedBox(
+            width: double.infinity,
+            height: isMobile ? 50 : 54,
+            child: ElevatedButton(
+              onPressed: _isVerifying ? null : _verifyOtp,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[700],
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _isVerifying
+                  ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              )
+                  : Text(
+                'Verify & Access Admin Panel',
+                style: TextStyle(
+                  fontSize: isMobile ? 15 : 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Resend section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Didn't receive the code?",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: isMobile ? 13 : 14,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: _isResending ? null : _resendOtp,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red[700],
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  child: _isResending
+                      ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.green[700]!),
+                    ),
+                  )
+                      : Text(
+                    'Resend Code',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 13 : 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOtpInputSection(bool isMobile) {
     return Column(
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: List.generate(6, (index) {
-            return SizedBox(
-              width: 50,
+            return Container(
+              width: isMobile ? 45 : 50,
+              height: isMobile ? 55 : 60,
               child: TextField(
                 controller: _otpControllers[index],
                 focusNode: _focusNodes[index],
                 textAlign: TextAlign.center,
                 keyboardType: TextInputType.number,
                 maxLength: 1,
+                style: TextStyle(
+                  fontSize: isMobile ? 20 : 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
                 decoration: InputDecoration(
                   counterText: '',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.green[700]!, width: 2),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
                 ),
                 onChanged: (value) {
                   if (value.isNotEmpty && index < 5) {
                     _focusNodes[index + 1].requestFocus();
+                  }
+                  if (value.isEmpty && index > 0) {
+                    _focusNodes[index - 1].requestFocus();
                   }
                 },
               ),
             );
           }),
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Enter the 6-digit code (check console for testing OTP)',
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            'Enter the 6-digit code from your email',
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: isMobile ? 11 : 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
         ),
       ],
     );
