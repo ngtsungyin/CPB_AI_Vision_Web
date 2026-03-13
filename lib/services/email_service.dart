@@ -1,49 +1,56 @@
-import 'package:emailjs/emailjs.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class EmailService {
-  // EmailJS configuration - Sign up at https://www.emailjs.com
-  static const String _serviceId = 'your_service_id';    // Get from EmailJS
-  static const String _templateId = 'your_template_id';  // Get from EmailJS
-  static const String _publicKey = 'your_public_key';    // Get from EmailJS
+  // Change this to your backend URL when running
+  static const String _backendUrl = 'http://localhost:3001'; // Local dev
   
-  // For development/testing
-  static bool _testMode = true; // Keep true until EmailJS is set up
+  // For testing - set to false when backend is ready
+  static bool _testMode = false;
   
-  // Send OTP email using EmailJS (works on web)
   static Future<bool> sendOtpEmail(String toEmail, String otpCode) async {
-    print('📧 Email Service: Preparing to send OTP: $otpCode to: $toEmail');
+    print('📧 Email Service: Sending OTP $otpCode to $toEmail');
     
+    // TEST MODE - Just print to console
     if (_testMode) {
-      print('🔧 TEST MODE - OTP for $toEmail: $otpCode');
       print('==========================================');
-      print('🔑 OTP: $otpCode');
+      print('🔧 TEST MODE - USE THIS OTP: $otpCode');
+      print('📧 EMAIL: $toEmail');
       print('==========================================');
       return true;
     }
     
+    // PRODUCTION MODE - Call your backend
     try {
-      // Send email using EmailJS
-      await EmailJS.send(
-        _serviceId,
-        _templateId,
-        {
-          'to_email': toEmail,
-          'to_name': toEmail.split('@')[0],
-          'otp_code': otpCode,
-          'from_name': 'CPB AI Vision Admin',
-        },
-        Options(
-          publicKey: _publicKey,
-        ),
+      final response = await http.post(
+        Uri.parse('$_backendUrl/send-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': toEmail,
+          'otp': otpCode,
+        }),
       );
       
-      print('✅ Email sent successfully via EmailJS');
-      return true;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('✅ Email sent via backend: ${data['messageId']}');
+        return true;
+      } else {
+        print('❌ Backend error: ${response.body}');
+        return false;
+      }
+        } catch (e) {
+      print('❌ Failed to call backend: $e');
+      print('❌ Error type: ${e.runtimeType}');
       
-    } catch (e) {
-      print('❌ EmailJS error: $e');
+      // Add more details if it's a specific error type
+      if (e is http.ClientException) {
+        print('❌ ClientException details: ${e.message}');
+        print('❌ ClientException URI: ${e.uri}');
+      }
+      
       print('==========================================');
-      print('⚠️ FALLBACK - OTP for $toEmail: $otpCode');
+      print('🔑 FALLBACK OTP: $otpCode');
       print('==========================================');
       return false;
     }
