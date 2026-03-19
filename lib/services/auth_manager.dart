@@ -10,8 +10,9 @@ class AuthManager {
 final List<Map<String, String>> _adminCredentials = [
   {"email": "ngtsungyin@gmail.com", "password": "dmcocoa"},
   {"email": "chocsweetlollipop@gmail.com", "password": "dmcocoa"},
-  {"email": "third_admin@company.com", "password": "another_password"},
-  // Add more admins here
+  {"email": "third_admin@company.com", "password": "rando"},
+  {"email": "torontojee07@gmail.com", "password": "dmcocoa"},
+
 ];
 
 bool verifyCredentials(String email, String password) {
