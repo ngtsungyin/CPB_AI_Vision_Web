@@ -8,7 +8,7 @@ class AuthManager {
 
 // Hardcoded admin credentials
 final List<Map<String, String>> _adminCredentials = [
-  {"email": "ngtsungyin@gmail.com", "password": "dmcocoa"},
+  {"email": "ngtsungyin@gmail.com", "password": "admin"},
   {"email": "chocsweetlollipop@gmail.com", "password": "dmcocoa"},
   {"email": "third_admin@company.com", "password": "rando"},
   {"email": "torontojee07@gmail.com", "password": "dmcocoa"},
