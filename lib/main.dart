@@ -2,8 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'pages/admin_login.dart'; 
+import 'pages/admin_login.dart';
 import 'pages/admin_panel.dart';
+import 'pages/auth_callback.dart'; // Add this import
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +33,13 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.grey[50],
       ),
-      home: const AdminLoginPage(), // Always start with login page
+      // Add routes here
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const AdminLoginPage(),
+        '/auth/callback': (context) => const AuthCallbackPage(),
+        '/admin': (context) => const AdminPanel(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }
