@@ -1,10 +1,8 @@
-// main.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'pages/admin_login.dart';
 import 'pages/admin_panel.dart';
-import 'pages/auth_callback.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,7 +10,7 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize Supabase (for database operations only)
+  // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.get('SUPABASE_URL'),
     anonKey: dotenv.get('SUPABASE_ANON_KEY'),
@@ -36,11 +34,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.grey[50],
       ),
-      // Add routes here
       initialRoute: '/',
       routes: {
         '/': (context) => const AdminLoginPage(),
-        '/auth/callback': (context) => const AuthCallbackPage(),
         '/admin': (context) => const AdminPanel(),
       },
       debugShowCheckedModeBanner: false,
