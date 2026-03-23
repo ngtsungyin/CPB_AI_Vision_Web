@@ -1,3 +1,4 @@
+// lib/pages/auth_callback.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_panel.dart';
@@ -19,47 +20,39 @@ class _AuthCallbackPageState extends State<AuthCallbackPage> {
 
   Future<void> _handleCallback() async {
     try {
-      // Give Supabase a moment to process the session
-      await Future.delayed(const Duration(milliseconds: 500));
+      print('🔐 Callback page loaded');
 
-      // Check if user is authenticated
-      final session = Supabase.instance.client.auth.currentSession;
+      // Get the session from the URL - this is the correct method for v2.10.3
+      final response = await Supabase.instance.client.auth.getSessionFromUrl(
+        Uri.base,
+      );
 
-      if (session != null && mounted) {
-        // Successfully logged in, navigate to admin panel
+      print('✅ Session received: ${response.session != null}');
+
+      if (response.session != null && mounted) {
+        print('✅ User logged in: ${response.session!.user.email}');
+
+        // Navigate to admin panel
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const AdminPanel()),
         );
       } else {
-        // No session, something went wrong
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login failed. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminLoginPage()),
-          );
-        }
+        print('❌ No session');
+        _goBackToLogin();
       }
     } catch (e) {
-      print('Callback error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AdminLoginPage()),
-        );
-      }
+      print('❌ Error: $e');
+      _goBackToLogin();
+    }
+  }
+
+  void _goBackToLogin() {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const AdminLoginPage()),
+      );
     }
   }
 
@@ -79,14 +72,6 @@ class _AuthCallbackPageState extends State<AuthCallbackPage> {
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Please wait',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 12,
               ),
             ),
           ],

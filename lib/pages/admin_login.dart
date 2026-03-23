@@ -58,7 +58,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       // Note: Make sure your redirect URL is configured in Supabase Dashboard
       await _supabase.auth.signInWithOtp(
         email: _emailController.text.trim(),
-        emailRedirectTo: _getRedirectUrl(), // Will handle local vs production
+        emailRedirectTo: 'http://localhost:3000/auth/callback',
       );
 
       _showMagicLinkSentDialog();
@@ -74,15 +74,11 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     }
   }
 
-  // Helper to get the correct redirect URL based on environment
+
   String _getRedirectUrl() {
-    // For local development
-    if (const String.fromEnvironment('FLUTTER_ENV') == 'development' ||
-        Uri.base.host == 'localhost') {
-      return 'http://localhost:3000/auth/callback';
-    }
-    // For production - change this to your actual domain
-    return 'https://your-domain.com/auth/callback';
+    final currentOrigin = Uri.base.origin;
+    print('🔗 Current origin: $currentOrigin');
+    return '$currentOrigin/auth/callback';
   }
 
   void _showMagicLinkSentDialog() {
