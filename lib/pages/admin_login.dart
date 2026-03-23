@@ -53,14 +53,12 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Send OTP via email (Supabase sends 6-digit code)
+      // Send OTP via email (Supabase sends code)
       await _supabase.auth.signInWithOtp(
         email: _emailController.text.trim(),
       );
 
-      _showOtpSentDialog();
-
-      // Navigate to OTP verification page
+      // Navigate directly to OTP verification page (no pop-up dialog)
       if (mounted) {
         Navigator.push(
           context,
@@ -77,57 +75,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     } finally {
       setState(() => _isLoading = false);
     }
-  }
-
-  void _showOtpSentDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.email, color: Colors.green),
-            SizedBox(width: 8),
-            Text('OTP Sent'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('We have sent a 6-digit OTP to your email.'),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _emailController.text.trim(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '📧 Enter the 6-digit code on the next screen to log in.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showErrorDialog(String message) {
