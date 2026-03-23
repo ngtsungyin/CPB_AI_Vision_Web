@@ -1,8 +1,8 @@
 // lib/pages/admin_login.dart
 import 'package:flutter/material.dart';
-import '../services/otp_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_manager.dart';
-import 'admin_otp_verification.dart';
+import 'admin_panel.dart';
 
 class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({super.key});
@@ -15,8 +15,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _otpService = OtpService();
   final _authManager = AuthManager();
+  final _supabase = Supabase.instance.client;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -36,10 +36,11 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     super.dispose();
   }
 
-  Future<void> _verifyAdminAndSendOtp() async {
+  // Changed: Now sends Magic Link instead of OTP
+  Future<void> _sendMagicLink() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Step 1: Verify hardcoded credentials
+    // Step 1: Verify hardcoded admin credentials
     if (!_authManager.verifyCredentials(
         _emailController.text.trim(),
         _passwordController.text
@@ -53,26 +54,17 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     });
 
     try {
-      // This now sends REAL email via SMTP
-      await _otpService.generateOtp(_emailController.text.trim());
+      // Send magic link via Supabase
+      // Note: Make sure your redirect URL is configured in Supabase Dashboard
+      await _supabase.auth.signInWithOtp(
+        email: _emailController.text.trim(),
+        emailRedirectTo: _getRedirectUrl(), // Will handle local vs production
+      );
 
-      // Show success message
-      _showEmailSentSuccess();
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AdminOtpVerificationPage(
-              email: _emailController.text.trim(),
-              otpService: _otpService,
-            ),
-          ),
-        );
-      }
+      _showMagicLinkSentDialog();
 
     } catch (e) {
-      _showErrorDialog('Failed to send OTP: $e');
+      _showErrorDialog('Failed to send magic link: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -82,22 +74,33 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     }
   }
 
-  void _showEmailSentSuccess() {
+  // Helper to get the correct redirect URL based on environment
+  String _getRedirectUrl() {
+    // For local development
+    if (const String.fromEnvironment('FLUTTER_ENV') == 'development' ||
+        Uri.base.host == 'localhost') {
+      return 'http://localhost:3000/auth/callback';
+    }
+    // For production - change this to your actual domain
+    return 'https://your-domain.com/auth/callback';
+  }
+
+  void _showMagicLinkSentDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.mark_email_read, color: Colors.green),
+            Icon(Icons.email, color: Colors.green),
             SizedBox(width: 8),
-            Text('OTP Sent to Your Email'),
+            Text('Magic Link Sent'),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('We have successfully sent a 6-digit OTP to:'),
+            const Text('We have sent a magic link to your email.'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -117,7 +120,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              '📧 Please check your email inbox (and spam folder) for the OTP code.',
+              '📧 Click the link in your email to log in automatically.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
@@ -126,7 +129,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Continue to OTP Entry'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -155,15 +158,15 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     final screenSize = MediaQuery.of(context).size;
     final isMobile = screenSize.width < 600;
     final isTablet = screenSize.width >= 600 && screenSize.width < 900;
-    
+
     // Calculate responsive card width
     double cardWidth;
     if (isMobile) {
-      cardWidth = screenSize.width * 0.9; // 90% on mobile
+      cardWidth = screenSize.width * 0.9;
     } else if (isTablet) {
-      cardWidth = 500; // Fixed width on tablet
+      cardWidth = 500;
     } else {
-      cardWidth = 450; // Fixed width on desktop
+      cardWidth = 450;
     }
 
     return Scaffold(
@@ -174,10 +177,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Header section with responsive sizing
               _buildHeaderSection(isMobile),
               SizedBox(height: isMobile ? 32 : 48),
-              // Login card with responsive width
               Container(
                 constraints: BoxConstraints(
                   maxWidth: cardWidth,
@@ -185,7 +186,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 ),
                 child: _buildLoginForm(isMobile),
               ),
-              // Footer credit (optional)
               if (!isMobile) ...[
                 const SizedBox(height: 32),
                 Text(
@@ -248,7 +248,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            'Two-Factor Authentication',
+            'Magic Link Authentication', // Changed from "Two-Factor Authentication"
             style: TextStyle(
               fontSize: isMobile ? 13 : 14,
               color: Colors.blue[800],
@@ -361,12 +361,12 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             ),
             const SizedBox(height: 24),
 
-            // Login button
+            // Login button - Changed to Send Magic Link
             SizedBox(
               width: double.infinity,
               height: isMobile ? 50 : 54,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _verifyAdminAndSendOtp,
+                onPressed: _isLoading ? null : _sendMagicLink, // Changed from _verifyAdminAndSendOtp
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[700],
                   foregroundColor: Colors.white,
@@ -385,7 +385,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                   ),
                 )
                     : Text(
-                  'Send OTP to Email',
+                  'Send Magic Link', // Changed from "Send OTP to Email"
                   style: TextStyle(
                     fontSize: isMobile ? 15 : 16,
                     fontWeight: FontWeight.w600,
@@ -397,20 +397,20 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
             const SizedBox(height: 20),
 
-            // Security notice
+            // Security notice - Updated for Magic Link
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange[50],
+                color: Colors.blue[50], // Changed from orange to blue
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange[100]!),
+                border: Border.all(color: Colors.blue[100]!),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.security,
-                    color: Colors.orange[700],
+                    Icons.email_outlined, // Changed from security icon
+                    color: Colors.blue[700],
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -419,18 +419,18 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Two-Factor Authentication',
+                          'Password + Magic Link Verification', // Updated text
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Colors.orange[800],
+                            color: Colors.blue[800],
                             fontSize: isMobile ? 13 : 14,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Password + OTP verification required for admin access',
+                          'Enter your password, then click the magic link sent to your email to access the admin panel.',
                           style: TextStyle(
-                            color: Colors.orange[700],
+                            color: Colors.blue[700],
                             fontSize: isMobile ? 12 : 13,
                             height: 1.4,
                           ),
