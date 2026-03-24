@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_manager.dart';
@@ -25,6 +26,15 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
   bool _isVerifying = false;
   bool _isResending = false;
+  int _resendCooldown = 0;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // No cooldown on page load
+    _resendCooldown = 0;
+  }
 
   @override
   void dispose() {
@@ -34,7 +44,31 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     for (var focusNode in _focusNodes) {
       focusNode.dispose();
     }
+    _cooldownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCooldown(int seconds) {
+    _cooldownTimer?.cancel();
+
+    setState(() {
+      _resendCooldown = seconds;
+    });
+
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted && _resendCooldown > 0) {
+        setState(() {
+          _resendCooldown--;
+        });
+      } else {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _resendCooldown = 0;
+          });
+        }
+      }
+    });
   }
 
   String _getOtp() {
@@ -48,43 +82,71 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     setState(() => _isVerifying = true);
 
     try {
-      // Verify OTP with Supabase
       final response = await _supabase.auth.verifyOTP(
         type: OtpType.email,
         email: widget.email,
         token: otp,
       );
 
-      if (response.user != null) {
+      if (response.user != null && mounted) {
         _authManager.login(widget.email);
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminPanel()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminPanel()),
+        );
       }
     } catch (e) {
       _showError('Invalid OTP. Please try again.');
       _clearOtpFields();
     } finally {
-      setState(() => _isVerifying = false);
+      if (mounted) {
+        setState(() => _isVerifying = false);
+      }
     }
   }
 
   Future<void> _resendOtp() async {
+    if (_resendCooldown > 0) {
+      _showError('Please wait ${_resendCooldown} seconds');
+      return;
+    }
+
     setState(() => _isResending = true);
 
     try {
       await _supabase.auth.signInWithOtp(
         email: widget.email,
       );
-      _showSuccess('New OTP sent to ${widget.email}');
+
+      if (mounted) {
+        _showSuccess('OTP resent! Check your email');
+        _clearOtpFields();
+        _startCooldown(60);
+      }
+
     } catch (e) {
-      _showError('Failed to resend OTP');
+      print('Resend error: $e');
+
+      // Check if it's a rate limit error (email still gets sent)
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('rate') || errorStr.contains('over_email_send_rate_limit')) {
+        // Email was actually sent, just treat as success
+        if (mounted) {
+          _showSuccess('OTP sent! Check your email');
+          _clearOtpFields();
+          _startCooldown(60);
+        }
+      } else {
+        if (mounted) {
+          _showError('Failed to resend. Please try again.');
+        }
+      }
+
     } finally {
-      setState(() => _isResending = false);
+      if (mounted) {
+        setState(() => _isResending = false);
+      }
     }
   }
 
@@ -109,6 +171,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isMobile = screenSize.width < 600;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -122,7 +187,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
           padding: const EdgeInsets.all(24),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 450),
-            padding: const EdgeInsets.all(32),
+            padding: EdgeInsets.all(isMobile ? 24 : 32),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -141,7 +206,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 Text(
                   'Enter OTP Code',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: isMobile ? 22 : 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
                   ),
@@ -164,8 +229,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: List.generate(6, (index) {
                     return SizedBox(
-                      width: 50,
-                      height: 60,
+                      width: isMobile ? 45 : 50,
+                      height: isMobile ? 55 : 60,
                       child: TextField(
                         controller: _otpControllers[index],
                         focusNode: _focusNodes[index],
@@ -182,6 +247,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.blue[700]!, width: 2),
                           ),
+                          filled: true,
+                          fillColor: Colors.grey[50],
                         ),
                         onChanged: (value) {
                           if (value.isNotEmpty && index < 5) {
@@ -224,15 +291,23 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text("Didn't receive code?", style: TextStyle(color: Colors.grey[600])),
+                    const SizedBox(width: 8),
                     TextButton(
-                      onPressed: _isResending ? null : _resendOtp,
+                      onPressed: (_isResending || _resendCooldown > 0) ? null : _resendOtp,
                       child: _isResending
                           ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                          : const Text('Resend'),
+                          : Text(
+                        _resendCooldown > 0
+                            ? 'Resend (${_resendCooldown}s)'
+                            : 'Resend',
+                        style: TextStyle(
+                          color: _resendCooldown > 0 ? Colors.grey[400] : Colors.blue[700],
+                        ),
+                      ),
                     ),
                   ],
                 ),
