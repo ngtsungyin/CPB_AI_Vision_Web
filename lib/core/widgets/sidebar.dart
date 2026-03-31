@@ -86,6 +86,9 @@ class _SidebarState extends State<Sidebar> {
                   label: 'Logout',
                   index: 6,
                 ),
+                _buildNavItem(icon: Icons.analytics_outlined, 
+                label: 'Admin Audit Log', 
+                index: 8)
               ],
             ),
           ),

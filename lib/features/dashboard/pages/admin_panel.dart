@@ -8,6 +8,8 @@ import 'package:cpbaivision_app/features/users/pages/user_management_page.dart';
 import 'package:cpbaivision_app/features/farms/pages/farm_management_page.dart';
 import 'package:cpbaivision_app/features/yields/pages/yield_management_page.dart';
 import 'package:cpbaivision_app/features/geo/pages/geo_view_page.dart';
+import 'package:cpbaivision_app/features/admin/pages/admin_audit_page.dart';
+
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -26,6 +28,7 @@ class _AdminPanelState extends State<AdminPanel> {
     UserManagementPage(),
     FarmManagementPage(),
     YieldManagementPage(),
+
   ];
 
   final List<String> _pageTitles = const [
@@ -34,6 +37,7 @@ class _AdminPanelState extends State<AdminPanel> {
     'Farm Management',
     'Yield Management',
     'Geo View',
+    'Admin Audit Log',
   ];
 
   Future<void> _handleLogout() async {
@@ -212,12 +216,18 @@ class _AdminPanelState extends State<AdminPanel> {
     if (index >= 0 && index < _pageTitles.length - 1) {
       return _pageTitles[index];
     }
+    if (index == 8) {
+      return 'Admin Audit Log';
+    }
     return 'Admin Panel';
   }
 
   Widget _getPage(int index) {
     if (index == 7) {
       return const GeoViewPage();
+    }
+    if (index == 8) {
+      return const AdminAuditPage();
     }
     if (index >= 0 && index < _pages.length) {
       return _pages[index];

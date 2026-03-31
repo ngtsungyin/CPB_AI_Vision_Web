@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Added to get current admin email
 import 'package:cpbaivision_app/shared/models/database_models.dart';
 import 'package:cpbaivision_app/core/services/database_service.dart';
 import 'package:cpbaivision_app/features/yields/helpers/yield_management_helper.dart';
@@ -24,6 +25,11 @@ class _YieldManagementPageState extends State<YieldManagementPage> {
   List<YieldRecord> _filteredRecords = [];
   bool _isLoading = true;
   String _searchQuery = '';
+
+  // Helper to get the logged-in admin's email for the audit logs
+  String get _currentAdminEmail {
+    return Supabase.instance.client.auth.currentUser?.email ?? 'Unknown Admin';
+  }
 
   @override
   void initState() {
@@ -97,6 +103,7 @@ class _YieldManagementPageState extends State<YieldManagementPage> {
     );
   }
 
+  // Changed back to only accept YieldRecord to match the table's callback
   Future<void> _deleteRecord(YieldRecord record) async {
     final confirmed = await showDeleteYieldDialog(
       context: context,
@@ -109,7 +116,8 @@ class _YieldManagementPageState extends State<YieldManagementPage> {
       _isLoading = true;
     });
 
-    final success = await _databaseService.deleteYieldRecord(record.recordId);
+    // Pass the admin email into the database service using our helper getter
+    final success = await _databaseService.deleteYieldRecord(record.recordId, _currentAdminEmail);
 
     if (!mounted) return;
 

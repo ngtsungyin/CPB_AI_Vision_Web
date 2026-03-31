@@ -1,3 +1,5 @@
+export "admin/admin_audit_logs.dart";
+
 export 'user/user_role.dart';
 export 'user/account_status.dart';
 export 'user/app_user.dart';

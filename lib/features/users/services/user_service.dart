@@ -1,7 +1,14 @@
 import 'package:cpbaivision_app/shared/models/database_models.dart';
 import 'package:cpbaivision_app/core/services/base_supabase_service.dart';
+import 'package:cpbaivision_app/features/admin/services/admin_audit_log_service.dart';
+import 'package:uuid/uuid.dart'; 
 
 class UserService extends BaseSupabaseService {
+  final AdminAuditLogService _auditLogService = AdminAuditLogService();
+  final Uuid _uuid = const Uuid(); 
+
+  // --- READ METHODS (No auditing needed) ---
+
   Future<AppUser?> getUser(String userId) async {
     try {
       final response = await client
@@ -47,8 +54,7 @@ class UserService extends BaseSupabaseService {
       return [];
     }
   }
-
-  Future<bool> createUser(AppUser user) async {
+    Future<bool> createUser(AppUser user) async {
     try {
       await client.from('users').insert(user.toMap());
       return true;
@@ -58,12 +64,25 @@ class UserService extends BaseSupabaseService {
     }
   }
 
-  Future<bool> updateUserStatus(String userId, String newStatus) async {
+  // --- MUTATION METHODS (These get audited!) ---
+
+  Future<bool> updateUserStatus(String userId, String newStatus, String adminEmail) async {
     try {
       await client.from('users').update({
         'accountstatus': newStatus,
         'updatedat': DateTime.now().toIso8601String(),
       }).eq('userid', userId.toLowerCase());
+
+      // LOG THE AUDIT
+      await _auditLogService.createAuditLog(AdminAuditLog(
+        logId: _uuid.v4(),
+        adminEmail: adminEmail,
+        action: 'UPDATE',
+        targetType: 'User',
+        targetId: userId,
+        details: 'Changed user account status to: $newStatus',
+        logTime: DateTime.now(),
+      ));
 
       return true;
     } catch (e) {
@@ -72,12 +91,23 @@ class UserService extends BaseSupabaseService {
     }
   }
 
-  Future<bool> updateUserRole(String userId, String newRole) async {
+  Future<bool> updateUserRole(String userId, String newRole, String adminEmail) async {
     try {
       await client.from('users').update({
         'role': newRole,
         'updatedat': DateTime.now().toIso8601String(),
       }).eq('userid', userId.toLowerCase());
+
+      // LOG THE AUDIT
+      await _auditLogService.createAuditLog(AdminAuditLog(
+        logId: _uuid.v4(),
+        adminEmail: adminEmail,
+        action: 'UPDATE',
+        targetType: 'User',
+        targetId: userId,
+        details: 'Changed user role to: $newRole',
+        logTime: DateTime.now(),
+      ));
 
       return true;
     } catch (e) {
@@ -86,9 +116,21 @@ class UserService extends BaseSupabaseService {
     }
   }
 
-  Future<bool> deleteUser(String userId) async {
+  Future<bool> deleteUser(String userId, String adminEmail) async {
     try {
       await client.from('users').delete().eq('userid', userId.toLowerCase());
+      
+      // LOG THE AUDIT
+      await _auditLogService.createAuditLog(AdminAuditLog(
+        logId: _uuid.v4(),
+        adminEmail: adminEmail,
+        action: 'DELETE',
+        targetType: 'User',
+        targetId: userId,
+        details: 'Deleted user account',
+        logTime: DateTime.now(),
+      ));
+
       return true;
     } catch (e) {
       logError('Error deleting user', e);

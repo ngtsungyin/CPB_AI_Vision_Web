@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Added to get current admin email
 import 'package:cpbaivision_app/shared/models/database_models.dart';
 import 'package:cpbaivision_app/core/services/database_service.dart';
 import 'package:cpbaivision_app/features/users/helpers/user_management_helper.dart';
@@ -29,6 +30,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
   UserRole? _selectedRole;
   AccountStatus? _selectedStatus;
   DateTime? _selectedDate;
+
+  // Helper to get the logged-in admin's email for the audit logs
+  String get _currentAdminEmail {
+    return Supabase.instance.client.auth.currentUser?.email ?? 'Unknown Admin';
+  }
 
   @override
   void initState() {
@@ -126,9 +132,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
-  Future<void> _updateUserStatus(AppUser user, AccountStatus newStatus) async {
+  Future<void> _updateUserStatus(AppUser user, AccountStatus newStatus, String adminEmail) async {
     try {
-      await _databaseService.updateUserStatus(user.userId, newStatus.name);
+      await _databaseService.updateUserStatus(user.userId, newStatus.name, adminEmail);
       _showSuccessSnackbar('User status updated successfully');
       await _loadUsers();
     } catch (e) {
@@ -136,9 +142,10 @@ class _UserManagementPageState extends State<UserManagementPage> {
     }
   }
 
-  Future<void> _updateUserRole(AppUser user, UserRole newRole) async {
+  // Included for completeness if you add a UI element to change roles later
+  Future<void> _updateUserRole(AppUser user, UserRole newRole, String adminEmail) async {
     try {
-      await _databaseService.updateUserRole(user.userId, newRole.name);
+      await _databaseService.updateUserRole(user.userId, newRole.name, adminEmail);
       _showSuccessSnackbar('User role updated successfully');
       await _loadUsers();
     } catch (e) {
@@ -158,7 +165,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
       _isLoading = true;
     });
 
-    final success = await _databaseService.deleteUser(user.userId);
+    // Pass the admin email into the delete function
+    final success = await _databaseService.deleteUser(user.userId, _currentAdminEmail);
 
     if (!mounted) return;
 
@@ -194,7 +202,8 @@ class _UserManagementPageState extends State<UserManagementPage> {
       user: user,
       onSave: (status) async {
         if (status.name != user.accountStatus) {
-          await _updateUserStatus(user, status);
+          // Pass the admin email into the update function
+          await _updateUserStatus(user, status, _currentAdminEmail);
         }
       },
     );

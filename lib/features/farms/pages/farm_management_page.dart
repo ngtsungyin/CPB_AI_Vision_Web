@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Added to get current admin email
 import 'package:cpbaivision_app/shared/models/database_models.dart';
 import 'package:cpbaivision_app/core/services/database_service.dart';
 import 'package:cpbaivision_app/features/farms/helpers/farm_management_helper.dart';
@@ -27,6 +28,11 @@ class _FarmManagementPageState extends State<FarmManagementPage> {
 
   bool _isLoading = true;
   String _searchQuery = '';
+
+  // Helper to get the logged-in admin's email for the audit logs
+  String get _currentAdminEmail {
+    return Supabase.instance.client.auth.currentUser?.email ?? 'Unknown Admin';
+  }
 
   @override
   void initState() {
@@ -108,13 +114,14 @@ class _FarmManagementPageState extends State<FarmManagementPage> {
     final confirmed = await showFarmStatusDialog(
       context: context,
       farm: farm,
-      newStatus: !farm.isActive, // ✅ REQUIRED
+      newStatus: !farm.isActive, 
     );
 
     if (confirmed != true) return;
 
     try {
-      await _databaseService.updateFarmStatus(farm.farmId, !farm.isActive);
+      // Pass the admin email to the service
+      await _databaseService.updateFarmStatus(farm.farmId, !farm.isActive, _currentAdminEmail);
       _showSuccess(
         farm.isActive
             ? 'Farm deactivated successfully'
@@ -139,7 +146,8 @@ class _FarmManagementPageState extends State<FarmManagementPage> {
       _isLoading = true;
     });
 
-    final success = await _databaseService.deleteFarm(farm.farmId);
+    // Pass the admin email to the service
+    final success = await _databaseService.deleteFarm(farm.farmId, _currentAdminEmail);
 
     if (!mounted) return;
 
@@ -178,7 +186,8 @@ class _FarmManagementPageState extends State<FarmManagementPage> {
       farm: farm,
       onSave: (updatedFarm) async {
         try {
-          await _databaseService.updateFarm(updatedFarm);
+          // Pass the admin email to the service
+          await _databaseService.updateFarm(updatedFarm, _currentAdminEmail);
           _showSuccess('Farm updated successfully');
           await _loadFarms();
         } catch (e) {
