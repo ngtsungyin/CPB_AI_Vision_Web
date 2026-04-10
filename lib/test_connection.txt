@@ -1,0 +1,27 @@
+import 'package:flutter/material.dart';
+import 'services/supabase_service.dart';
+import 'pages/test_connection_page.dart'; // Add this import
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await SupabaseService.initialize();
+  
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Cocoa Farm App',
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+      ),
+      home: TestConnectionPage(), // Change to test page temporarily
+      // home: HomePage(), // Change back after testing
+    );
+  }
+}
+
+////////////THIS IS THE TEST main.dart code for test_connection_page.dart///////////////
