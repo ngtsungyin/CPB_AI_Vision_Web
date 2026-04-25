@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
 import 'package:cpbaivision_app/features/auth/services/auth_gate.dart';
 import 'package:cpbaivision_app/features/auth/services/session_notice.dart';
+import 'package:cpbaivision_app/core/services/notification_service.dart';  // ← ADD THIS
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,7 @@ void main() async {
 }
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
-    GlobalKey<ScaffoldMessengerState>();
+GlobalKey<ScaffoldMessengerState>();
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -35,7 +37,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-
     SessionNotice.message.addListener(_handleSessionNotice);
   }
 
@@ -67,16 +68,24 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Cocoa Admin Panel',
-      debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: rootScaffoldMessengerKey,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.grey[50],
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => NotificationService()..initialize(),
+          lazy: false,
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Cocoa Admin Panel',
+        debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: rootScaffoldMessengerKey,
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          useMaterial3: true,
+          scaffoldBackgroundColor: Colors.grey[50],
+        ),
+        home: const AuthGate(),
       ),
-      home: const AuthGate(),
     );
   }
 }
