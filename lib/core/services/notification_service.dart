@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/models/admin/notification.dart';
-
-// Global key for showing snackbars from anywhere
-final GlobalKey<ScaffoldMessengerState> globalScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+import '../../../main.dart';
 
 class NotificationService extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -12,7 +10,6 @@ class NotificationService extends ChangeNotifier {
   bool _isLoading = false;
   RealtimeChannel? _realtimeChannel;
 
-  // Callback for custom navigation when notification is clicked
   Function(AdminNotification)? onNotificationClicked;
 
   List<AdminNotification> get notifications => _notifications;
@@ -36,8 +33,6 @@ class NotificationService extends ChangeNotifier {
         final newNotification = AdminNotification.fromJson(payload.newRecord);
         _notifications.insert(0, newNotification);
         notifyListeners();
-
-        // Show popup
         _showFloatingNotification(newNotification);
       },
     )
@@ -66,114 +61,49 @@ class NotificationService extends ChangeNotifier {
   void _showFloatingNotification(AdminNotification notification) {
     print('📢 Showing popup for: ${notification.title}');
 
-    final messenger = globalScaffoldMessengerKey.currentState;
-    if (messenger == null) {
-      print('❌ Messenger is null, cannot show popup');
-      return;
-    }
+    final messenger = rootScaffoldMessengerKey.currentState;
+    if (messenger == null) return;
 
-    // Clear any existing snackbars
     messenger.removeCurrentSnackBar();
-
-    // Get screen width
-    final screenWidth = messenger.context?.size?.width ?? 400;
 
     messenger.showSnackBar(
       SnackBar(
-        content: GestureDetector(
-          onTap: () {
-            print('👆 Popup tapped!');
-            messenger.hideCurrentSnackBar();
-            if (onNotificationClicked != null) {
-              onNotificationClicked!(notification);
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+        content: Row(
+          children: [
+            const Icon(Icons.notifications_active, color: Colors.blue, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    notification.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  Text(
+                    notification.message,
+                    style: const TextStyle(fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                // Icon
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.notifications_active,
-                    color: Colors.blue,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Text content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        notification.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        notification.message,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Close button
-                GestureDetector(
-                  onTap: () {
-                    messenger.hideCurrentSnackBar();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    child: const Icon(
-                      Icons.close,
-                      size: 18,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ],
+            TextButton(
+              onPressed: () {
+                messenger.hideCurrentSnackBar();
+                if (onNotificationClicked != null) {
+                  onNotificationClicked!(notification);
+                }
+              },
+              child: const Text('View'),
             ),
-          ),
+          ],
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: Colors.black87,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-        margin: EdgeInsets.only(
-          top: 80,  // Position below the header
-          right: 20,  // From right edge
-          left: screenWidth - 380,  // Width of popup
-        ),
-        padding: EdgeInsets.zero,
+        margin: const EdgeInsets.only(top: 80, right: 20, left: 300),
       ),
     );
   }
