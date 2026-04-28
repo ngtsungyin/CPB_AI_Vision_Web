@@ -44,7 +44,11 @@ class NotificationService extends ChangeNotifier {
           .select()
           .order('created_at', ascending: false);
 
+      print('Fetched ${response.length} notifications');
+      print('Response: $response');
+
       _notifications = response.map((json) => AdminNotification.fromJson(json)).toList();
+      print('Parsed ${_notifications.length} notifications');
     } catch (e) {
       debugPrint('Error fetching notifications: $e');
     } finally {

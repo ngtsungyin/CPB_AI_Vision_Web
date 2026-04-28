@@ -83,6 +83,10 @@ class _MyAppState extends State<MyApp> {
           primarySwatch: Colors.blue,
           useMaterial3: true,
           scaffoldBackgroundColor: Colors.grey[50],
+          popupMenuTheme: const PopupMenuThemeData(
+            color: Colors.white,  // Forces dropdown to be white
+            elevation: 2,
+        ),
         ),
         home: const AuthGate(),
       ),

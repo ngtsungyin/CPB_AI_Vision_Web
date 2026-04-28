@@ -19,7 +19,6 @@ class AdminHeader extends StatelessWidget {
     final isCompact = width < 760;
     final showProfileText = width >= 1200;
 
-    // Listen to notification service
     final notificationService = Provider.of<NotificationService>(context);
     final unreadCount = notificationService.unreadCount;
 
@@ -29,55 +28,53 @@ class AdminHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: Colors.black.withOpacity(0.1)),
         ),
       ),
       child: Row(
         children: [
-          // Menu button
           IconButton(
             onPressed: () => scaffoldKey.currentState?.openDrawer(),
-            icon: const Icon(Icons.menu_rounded),
+            icon: const Icon(Icons.menu_rounded, color: Colors.black87),
           ),
           const SizedBox(width: 8),
 
-          // Title
           Expanded(
             child: Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: isCompact ? 20 : 24,
+              style: const TextStyle(
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.4,
+                color: Colors.black87,
               ),
             ),
           ),
 
-          // Notifications button with badge
           const SizedBox(width: 8),
           Stack(
             clipBehavior: Clip.none,
             children: [
               IconButton(
                 onPressed: () {
-                  _showNotificationPopup(context, notificationService);
+                  _showNotificationDropdown(context, notificationService);
                 },
                 icon: Icon(
                   Icons.notifications_none_rounded,
-                  color: unreadCount > 0 ? Colors.blue.shade700 : null,
+                  color: unreadCount > 0 ? Colors.black87 : Colors.grey,
                 ),
               ),
               if (unreadCount > 0)
                 Positioned(
-                  right: 4,
-                  top: 4,
+                  right: 8,
+                  top: 8,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     constraints: const BoxConstraints(
                       minWidth: 16,
@@ -98,18 +95,17 @@ class AdminHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          // Profile section
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: Colors.black.withOpacity(0.1)),
             ),
             child: Row(
               children: [
                 const CircleAvatar(
                   radius: 16,
-                  backgroundColor: Colors.grey,
+                  backgroundColor: Colors.black,
                   child: Icon(
                     Icons.person_rounded,
                     size: 18,
@@ -127,13 +123,14 @@ class AdminHeader extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
+                          color: Colors.black87,
                         ),
                       ),
                       Text(
                         'Administrator',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color: Colors.black54,
                         ),
                       ),
                     ],
@@ -147,33 +144,47 @@ class AdminHeader extends StatelessWidget {
     );
   }
 
-  void _showNotificationPopup(BuildContext context, NotificationService service) {
-    showDialog(
+  void _showNotificationDropdown(BuildContext context, NotificationService service) {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final Offset offset = button.localToGlobal(Offset.zero);
+
+    showMenu(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          contentPadding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Container(
-            width: 400,
-            height: 500,
+      position: RelativeRect.fromLTRB(
+        MediaQuery.of(context).size.width - 380,  // 380px from right edge
+        offset.dy + button.size.height,            // Below the bell
+        MediaQuery.of(context).size.width,
+        offset.dy,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 4,
+      constraints: const BoxConstraints(
+        maxWidth: 380,
+        maxHeight: 500,
+      ),
+      items: [
+        PopupMenuItem(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: Container(
+            width: 380,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
+                // Header with close button
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
                   child: Row(
                     children: [
                       const Text(
                         'Notifications',
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                       ),
                       const Spacer(),
@@ -181,71 +192,92 @@ class AdminHeader extends StatelessWidget {
                         TextButton(
                           onPressed: () {
                             service.markAllAsRead();
-                            Navigator.pop(context);
                           },
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.blue.shade700,
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                           ),
                           child: const Text('Mark all read'),
                         ),
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.close, size: 20, color: Colors.black87),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
                     ],
                   ),
                 ),
-                const Divider(height: 1),
+                const Divider(height: 1, color: Colors.black12),
 
                 // Notifications list
-                Expanded(
-                  child: service.isLoading && service.notifications.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
-                      : service.notifications.isEmpty
-                      ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.notifications_none, size: 48, color: Colors.grey),
-                          SizedBox(height: 12),
-                          Text('No notifications', style: TextStyle(color: Colors.grey)),
-                        ],
+                service.isLoading && service.notifications.isEmpty
+                    ? const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+                    : service.notifications.isEmpty
+                    ? const Padding(
+                  padding: EdgeInsets.all(60),
+                  child: Column(
+                    children: [
+                      Icon(Icons.notifications_none, size: 48, color: Colors.black38),
+                      SizedBox(height: 12),
+                      Text(
+                        'No notifications',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: service.notifications.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, color: Colors.black12),
+                  itemBuilder: (context, index) {
+                    final notification = service.notifications[index];
+                    return _NotificationItem(
+                      notification: notification,
+                      onTap: () async {
+                        if (!notification.isRead) {
+                          await service.markAsRead(notification.id);
+                        }
+                        Navigator.pop(context);
+                        if (notification.type == 'user_registration') {
+                          Navigator.pushNamed(context, '/user-management');
+                        }
+                      },
+                    );
+                  },
+                ),
+
+                if (service.notifications.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Center(
+                      child: Text(
+                        '${service.notifications.length} total',
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
                       ),
                     ),
-                  )
-                      : ListView.builder(
-                    itemCount: service.notifications.length,
-                    itemBuilder: (context, index) {
-                      final notification = service.notifications[index];
-                      return _NotificationTile(
-                        notification: notification,
-                        onTap: () async {
-                          if (!notification.isRead) {
-                            await service.markAsRead(notification.id);
-                          }
-                          Navigator.pop(context);
-                          if (notification.type == 'new_user_registration') {
-                            // Navigate to user management
-                            Navigator.pushNamed(context, '/user-management');
-                          }
-                        },
-                      );
-                    },
                   ),
-                ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
 
-// Notification tile widget
-class _NotificationTile extends StatelessWidget {
+class _NotificationItem extends StatelessWidget {
   final AdminNotification notification;
   final VoidCallback onTap;
 
-  const _NotificationTile({
+  const _NotificationItem({
     required this.notification,
     required this.onTap,
   });
@@ -255,26 +287,20 @@ class _NotificationTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: !notification.isRead ? Colors.blue.shade50 : Colors.white,
-          border: const Border(
-            bottom: BorderSide(color: Colors.grey),
-          ),
-        ),
+        padding: const EdgeInsets.all(12),
+        color: !notification.isRead ? Colors.black.withOpacity(0.05) : Colors.white,
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: !notification.isRead ? Colors.blue.shade100 : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
+                color: !notification.isRead ? Colors.black.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 Icons.person_add_rounded,
-                size: 20,
-                color: !notification.isRead ? Colors.blue.shade700 : Colors.grey.shade600,
+                size: 18,
+                color: !notification.isRead ? Colors.black87 : Colors.black54,
               ),
             ),
             const SizedBox(width: 12),
@@ -286,21 +312,27 @@ class _NotificationTile extends StatelessWidget {
                     notification.title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: !notification.isRead ? Colors.black87 : Colors.grey.shade700,
+                      fontSize: 13,
+                      color: !notification.isRead ? Colors.black87 : Colors.black54,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     notification.message,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     _formatTimeAgo(notification.createdAt),
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.black38,
+                    ),
                   ),
                 ],
               ),
@@ -310,7 +342,7 @@ class _NotificationTile extends StatelessWidget {
                 width: 8,
                 height: 8,
                 decoration: const BoxDecoration(
-                  color: Colors.blue,
+                  color: Colors.black,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -321,19 +353,11 @@ class _NotificationTile extends StatelessWidget {
   }
 
   String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 7) {
-      return '${(difference.inDays / 7).floor()}w ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inDays > 7) return '${(difference.inDays / 7).floor()}w ago';
+    if (difference.inDays > 0) return '${difference.inDays}d ago';
+    if (difference.inHours > 0) return '${difference.inHours}h ago';
+    if (difference.inMinutes > 0) return '${difference.inMinutes}m ago';
+    return 'Just now';
   }
 }
