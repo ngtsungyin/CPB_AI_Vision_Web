@@ -65,6 +65,7 @@ class AdminHeader extends StatelessWidget {
                 },
                 icon: Icon(
                   Icons.notifications_none_rounded,
+                  size: 28,
                   color: unreadCount > 0 ? Colors.black87 : Colors.grey,
                 ),
               ),
@@ -75,7 +76,7 @@ class AdminHeader extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      color: Colors.red,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     constraints: const BoxConstraints(

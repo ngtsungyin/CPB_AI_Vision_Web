@@ -32,16 +32,15 @@ class NotificationService extends ChangeNotifier {
       schema: 'public',
       table: 'admin_notifications',
       callback: (payload) {
-        print('🔔 NEW NOTIFICATION RECEIVED!');
+        print('🔔 New notification received!');
         final newNotification = AdminNotification.fromJson(payload.newRecord);
         _notifications.insert(0, newNotification);
         notifyListeners();
 
-        // Show popup for new notification
-        _showPopupNotification(newNotification);
+        // Show popup
+        _showFloatingNotification(newNotification);
       },
     )
-
         .onPostgresChanges(
       event: PostgresChangeEvent.update,
       schema: 'public',
@@ -57,91 +56,122 @@ class NotificationService extends ChangeNotifier {
     )
         .subscribe((status, error) {
       if (error != null) {
-        debugPrint('Realtime subscription error: $error');
+        print('❌ Realtime subscription error: $error');
       } else {
-        debugPrint('Realtime subscription status: $status');
+        print('📡 Realtime subscription status: $status');
       }
     });
   }
 
-  void _showPopupNotification(AdminNotification notification) {
-    final messenger = globalScaffoldMessengerKey.currentState;
-    if (messenger == null) return;
+  void _showFloatingNotification(AdminNotification notification) {
+    print('📢 Showing popup for: ${notification.title}');
 
-    // Create a custom popup that appears at the top right near the bell
+    final messenger = globalScaffoldMessengerKey.currentState;
+    if (messenger == null) {
+      print('❌ Messenger is null, cannot show popup');
+      return;
+    }
+
+    // Clear any existing snackbars
+    messenger.removeCurrentSnackBar();
+
+    // Get screen width
+    final screenWidth = messenger.context?.size?.width ?? 400;
+
     messenger.showSnackBar(
       SnackBar(
-        content: Container(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              // Icon
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
+        content: GestureDetector(
+          onTap: () {
+            print('👆 Popup tapped!');
+            messenger.hideCurrentSnackBar();
+            if (onNotificationClicked != null) {
+              onNotificationClicked!(notification);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
-                child: const Icon(
-                  Icons.notifications_active,
-                  color: Colors.blue,
-                  size: 20,
+              ],
+            ),
+            child: Row(
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_active,
+                    color: Colors.blue,
+                    size: 22,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Text content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      notification.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                const SizedBox(width: 12),
+
+                // Text content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        notification.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      notification.message,
-                      style: const TextStyle(fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        notification.message,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              // Action button
-              TextButton(
-                onPressed: () {
-                  messenger.hideCurrentSnackBar();
-                  if (onNotificationClicked != null) {
-                    onNotificationClicked!(notification);
-                  }
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+
+                // Close button
+                GestureDetector(
+                  onTap: () {
+                    messenger.hideCurrentSnackBar();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Colors.grey,
+                    ),
+                  ),
                 ),
-                child: const Text('View'),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        backgroundColor: Colors.white,
-        elevation: 4,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey.shade200),
-        ),
-        // Position the popup at the top right (near the bell)
         margin: EdgeInsets.only(
-          top: 80,  // Below the header
+          top: 80,  // Position below the header
           right: 20,  // From right edge
-          left: MediaQuery.of(messenger.context).size.width - 400,  // Width ~380
+          left: screenWidth - 380,  // Width of popup
         ),
         padding: EdgeInsets.zero,
       ),
@@ -159,8 +189,9 @@ class NotificationService extends ChangeNotifier {
           .order('created_at', ascending: false);
 
       _notifications = response.map((json) => AdminNotification.fromJson(json)).toList();
+      print('📋 Fetched ${_notifications.length} notifications');
     } catch (e) {
-      debugPrint('Error fetching notifications: $e');
+      print('❌ Error fetching notifications: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -183,7 +214,7 @@ class NotificationService extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error marking notification as read: $e');
+      print('❌ Error marking notification as read: $e');
     }
   }
 
@@ -205,7 +236,7 @@ class NotificationService extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      debugPrint('Error marking all as read: $e');
+      print('❌ Error marking all as read: $e');
     }
   }
 
