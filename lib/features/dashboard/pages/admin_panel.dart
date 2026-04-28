@@ -28,7 +28,6 @@ class _AdminPanelState extends State<AdminPanel> {
     UserManagementPage(),
     FarmManagementPage(),
     YieldManagementPage(),
-
   ];
 
   final List<String> _pageTitles = const [
@@ -125,7 +124,7 @@ class _AdminPanelState extends State<AdminPanel> {
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF6B7280),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -144,7 +143,7 @@ class _AdminPanelState extends State<AdminPanel> {
                 backgroundColor: const Color(0xFFEF4444),
                 foregroundColor: Colors.white,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -174,15 +173,11 @@ class _AdminPanelState extends State<AdminPanel> {
     try {
       SessionNotice.show('You have been logged out successfully.');
       await Supabase.instance.client.auth.signOut();
-      // No manual navigation here.
-      // AuthGate will automatically route user to login page.
     } catch (e) {
       SessionNotice.show('Unable to log out cleanly. Please sign in again.');
       try {
         await Supabase.instance.client.auth.signOut();
-      } catch (_) {
-        // ignore second failure
-      }
+      } catch (_) {}
     } finally {
       if (mounted) {
         setState(() {
@@ -252,6 +247,12 @@ class _AdminPanelState extends State<AdminPanel> {
             AdminHeader(
               title: _getPageTitle(_currentIndex),
               scaffoldKey: _scaffoldKey,
+              onNotificationPressed: () {
+                // Navigate to User Management page (index 1)
+                setState(() {
+                  _currentIndex = 1;
+                });
+              },
             ),
             Expanded(
               child: Container(
@@ -318,53 +319,53 @@ class _AdminPanelState extends State<AdminPanel> {
           drawer: isDesktop
               ? null
               : Drawer(
-                  elevation: 0,
-                  backgroundColor: Colors.white,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero,
-                  ),
-                  child: SafeArea(
-                    child: _buildSidebar(),
-                  ),
-                ),
+            elevation: 0,
+            backgroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+            child: SafeArea(
+              child: _buildSidebar(),
+            ),
+          ),
           body: SafeArea(
             child: isDesktop
                 ? Row(
-                    children: [
-                      SizedBox(
-                        width: 280,
-                        child: RepaintBoundary(
-                          child: _buildSidebar(),
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildMainContent(),
-                      ),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      Expanded(
-                        child: _buildMainContent(),
-                      ),
-                    ],
+              children: [
+                SizedBox(
+                  width: 280,
+                  child: RepaintBoundary(
+                    child: _buildSidebar(),
                   ),
+                ),
+                Expanded(
+                  child: _buildMainContent(),
+                ),
+              ],
+            )
+                : Column(
+              children: [
+                Expanded(
+                  child: _buildMainContent(),
+                ),
+              ],
+            ),
           ),
           floatingActionButton: isDesktop
               ? null
               : isTablet
-                  ? null
-                  : FloatingActionButton.small(
-                      elevation: 0,
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      onPressed: _isLoggingOut
-                          ? null
-                          : () {
-                              _scaffoldKey.currentState?.openDrawer();
-                            },
-                      child: const Icon(Icons.menu_rounded),
-                    ),
+              ? null
+              : FloatingActionButton.small(
+            elevation: 0,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+            onPressed: _isLoggingOut
+                ? null
+                : () {
+              _scaffoldKey.currentState?.openDrawer();
+            },
+            child: const Icon(Icons.menu_rounded),
+          ),
         );
       },
     );

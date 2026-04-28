@@ -6,11 +6,13 @@ import '../../shared/models/admin/notification.dart';
 class AdminHeader extends StatelessWidget {
   final String title;
   final GlobalKey<ScaffoldState> scaffoldKey;
+  final VoidCallback? onNotificationPressed;
 
   const AdminHeader({
     super.key,
     required this.title,
     required this.scaffoldKey,
+    this.onNotificationPressed,
   });
 
   @override
@@ -151,8 +153,8 @@ class AdminHeader extends StatelessWidget {
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
-        MediaQuery.of(context).size.width - 380,  // 380px from right edge
-        offset.dy + button.size.height,            // Below the bell
+        MediaQuery.of(context).size.width - 380,
+        offset.dy + button.size.height,
         MediaQuery.of(context).size.width,
         offset.dy,
       ),
@@ -174,7 +176,6 @@ class AdminHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header with close button
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
                   child: Row(
@@ -212,7 +213,6 @@ class AdminHeader extends StatelessWidget {
                 ),
                 const Divider(height: 1, color: Colors.black12),
 
-                // Notifications list
                 service.isLoading && service.notifications.isEmpty
                     ? const Padding(
                   padding: EdgeInsets.all(40),
@@ -245,9 +245,15 @@ class AdminHeader extends StatelessWidget {
                         if (!notification.isRead) {
                           await service.markAsRead(notification.id);
                         }
+
+                        // Close dropdown
                         Navigator.pop(context);
+
                         if (notification.type == 'user_registration') {
-                          Navigator.pushNamed(context, '/user-management');
+                          // Use callback to navigate
+                          if (onNotificationPressed != null) {
+                            onNotificationPressed!();
+                          }
                         }
                       },
                     );
