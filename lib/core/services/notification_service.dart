@@ -19,15 +19,12 @@ class NotificationService extends ChangeNotifier {
   }
 
   void _listenToRealtimeNotifications() {
-    final adminId = _supabase.auth.currentUser?.id;
-    if (adminId == null) return;
-
     _realtimeChannel = _supabase
-        .channel('notifications:admin_id=eq.$adminId')
+        .channel('admin_notifications_channel')
         .onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
-      table: 'notifications',
+      table: 'admin_notifications',  // Using your existing table
       callback: (payload) {
         final newNotification = AdminNotification.fromJson(payload.newRecord);
         _notifications.insert(0, newNotification);
@@ -42,13 +39,9 @@ class NotificationService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final adminId = _supabase.auth.currentUser?.id;
-      if (adminId == null) return;
-
       final response = await _supabase
-          .from('notifications')
+          .from('admin_notifications')  // Using your existing table
           .select()
-          .eq('admin_id', adminId)
           .order('created_at', ascending: false);
 
       _notifications = response.map((json) => AdminNotification.fromJson(json)).toList();
@@ -63,8 +56,8 @@ class NotificationService extends ChangeNotifier {
   Future<void> markAsRead(String notificationId) async {
     try {
       await _supabase
-          .from('notifications')
-          .update({'is_read': true})
+          .from('admin_notifications')
+          .update({'is_read': true, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', notificationId);
 
       final index = _notifications.indexWhere((n) => n.id == notificationId);
@@ -83,8 +76,8 @@ class NotificationService extends ChangeNotifier {
       if (unreadIds.isEmpty) return;
 
       await _supabase
-          .from('notifications')
-          .update({'is_read': true})
+          .from('admin_notifications')
+          .update({'is_read': true, 'updated_at': DateTime.now().toIso8601String()})
           .inFilter('id', unreadIds);
 
       for (var notification in _notifications) {
