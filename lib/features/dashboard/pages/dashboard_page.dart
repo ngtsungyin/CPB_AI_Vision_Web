@@ -4,6 +4,7 @@ import 'package:cpbaivision_app/features/dashboard/widgets/stats_overview_card.d
 import 'package:cpbaivision_app/features/dashboard/widgets/state_distribution_card.dart';
 import 'package:cpbaivision_app/features/dashboard/widgets/decision_distribution_card.dart';
 import 'package:cpbaivision_app/features/dashboard/widgets/analytics_chart_card.dart';
+import 'package:cpbaivision_app/features/dashboard/widgets/rules_insights.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -20,10 +21,13 @@ class DashboardPage extends StatelessWidget {
             const _DashboardHero(),
             const SizedBox(height: 24),
 
+            // Drop the new self-contained widget here
+            const RepaintBoundary(child: RulesInsightsCard()),
+
+            const SizedBox(height: 24),
+
             RepaintBoundary(
-              child: StatsOverviewCard(
-                databaseService: DatabaseService(),
-              ),
+              child: StatsOverviewCard(databaseService: DatabaseService()),
             ),
 
             const SizedBox(height: 24),
@@ -35,20 +39,11 @@ class DashboardPage extends StatelessWidget {
                 if (width < 1100) {
                   return const Column(
                     children: [
-                      SizedBox(
-                        height: 420,
-                        child: StateDistributionCard(),
-                      ),
+                      SizedBox(height: 420, child: StateDistributionCard()),
                       SizedBox(height: 16),
-                      SizedBox(
-                        height: 380,
-                        child: DecisionDistributionCard(),
-                      ),
+                      SizedBox(height: 380, child: DecisionDistributionCard()),
                       SizedBox(height: 16),
-                      SizedBox(
-                        height: 340,
-                        child: AnalyticsChartCard(),
-                      ),
+                      SizedBox(height: 340, child: AnalyticsChartCard()),
                     ],
                   );
                 }
@@ -60,22 +55,14 @@ class DashboardPage extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 2,
-                            child: StateDistributionCard(),
-                          ),
+                          Expanded(flex: 2, child: StateDistributionCard()),
                           SizedBox(width: 16),
-                          Expanded(
-                            child: DecisionDistributionCard(),
-                          ),
+                          Expanded(child: DecisionDistributionCard()),
                         ],
                       ),
                     ),
                     SizedBox(height: 16),
-                    SizedBox(
-                      height: 340,
-                      child: AnalyticsChartCard(),
-                    ),
+                    SizedBox(height: 340, child: AnalyticsChartCard()),
                   ],
                 );
               },
@@ -125,8 +112,10 @@ class _DashboardHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(14),
@@ -169,8 +158,10 @@ class _DashboardHero extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(14),

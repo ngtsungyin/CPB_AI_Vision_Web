@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:cpbaivision_app/features/auth/services/session_notice.dart';
 import 'package:cpbaivision_app/core/widgets/admin_header.dart';
 import 'package:cpbaivision_app/core/widgets/sidebar.dart';
+
 import 'dashboard_page.dart';
 import 'package:cpbaivision_app/features/users/pages/user_management_page.dart';
 import 'package:cpbaivision_app/features/farms/pages/farm_management_page.dart';
@@ -10,6 +12,10 @@ import 'package:cpbaivision_app/features/yields/pages/yield_management_page.dart
 import 'package:cpbaivision_app/features/geo/pages/geo_view_page.dart';
 import 'package:cpbaivision_app/features/admin/pages/admin_audit_page.dart';
 
+import 'package:cpbaivision_app/features/labour_costs/pages/labour_cost_page.dart';
+import 'package:cpbaivision_app/features/pesticide_costs/pages/pesticide_cost_page.dart';
+import 'package:cpbaivision_app/features/scans_report_page.dart';
+import 'package:cpbaivision_app/features/scan_sessions/pages/scan_session_page.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -22,22 +28,6 @@ class _AdminPanelState extends State<AdminPanel> {
   int _currentIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isLoggingOut = false;
-
-  final List<Widget> _pages = const [
-    DashboardPage(),
-    UserManagementPage(),
-    FarmManagementPage(),
-    YieldManagementPage(),
-  ];
-
-  final List<String> _pageTitles = const [
-    'Dashboard',
-    'User Management',
-    'Farm Management',
-    'Yield Management',
-    'Geo View',
-    'Admin Audit Log',
-  ];
 
   Future<void> _handleLogout() async {
     if (_isLoggingOut) return;
@@ -56,11 +46,7 @@ class _AdminPanelState extends State<AdminPanel> {
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           title: const Row(
             children: [
-              Icon(
-                Icons.logout_rounded,
-                color: Color(0xFF2563EB),
-                size: 26,
-              ),
+              Icon(Icons.logout_rounded, color: Color(0xFF2563EB), size: 26),
               SizedBox(width: 10),
               Text(
                 'Confirm Logout',
@@ -118,13 +104,14 @@ class _AdminPanelState extends State<AdminPanel> {
           ),
           actions: [
             TextButton(
-              onPressed: _isLoggingOut
-                  ? null
-                  : () => Navigator.of(context).pop(false),
+              onPressed:
+                  _isLoggingOut ? null : () => Navigator.of(context).pop(false),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF6B7280),
-                padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -135,15 +122,16 @@ class _AdminPanelState extends State<AdminPanel> {
               ),
             ),
             ElevatedButton(
-              onPressed: _isLoggingOut
-                  ? null
-                  : () => Navigator.of(context).pop(true),
+              onPressed:
+                  _isLoggingOut ? null : () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: const Color(0xFFEF4444),
                 foregroundColor: Colors.white,
-                padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -190,7 +178,7 @@ class _AdminPanelState extends State<AdminPanel> {
   void _onItemSelected(int index) {
     if (_isLoggingOut) return;
 
-    if (index == 6) {
+    if (index == 11) {
       _handleLogout();
       return;
     }
@@ -205,31 +193,65 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 
   String _getPageTitle(int index) {
-    if (index == 7) {
-      return 'Geo View';
+    switch (index) {
+      case 0:
+        return 'Dashboard';
+      case 1:
+        return 'Geo View';
+      case 2:
+        return 'User Management';
+      case 3:
+        return 'Farm Management';
+      case 4:
+        return 'Yield Management';
+      case 5:
+        return 'Labour Cost';
+      case 6:
+        return 'Pesticide Cost';
+      case 7:
+        return 'Scans Report';
+      case 8:
+        return 'Scan Session';
+      case 9:
+        return 'Settings';
+      case 10:
+        return 'Help & Support';
+      case 12:
+        return 'Admin Audit Log';
+      default:
+        return 'Admin Panel';
     }
-    if (index >= 0 && index < _pageTitles.length - 1) {
-      return _pageTitles[index];
-    }
-    if (index == 8) {
-      return 'Admin Audit Log';
-    }
-    return 'Admin Panel';
   }
 
   Widget _getPage(int index) {
-    if (index == 7) {
-      return const GeoViewPage();
+    switch (index) {
+      case 0:
+        return const DashboardPage();
+      case 1:
+        return const GeoViewPage();
+      case 2:
+        return const UserManagementPage();
+      case 3:
+        return const FarmManagementPage();
+      case 4:
+        return const YieldManagementPage();
+      case 5:
+        return const LabourCostPage();
+      case 6:
+        return const PesticideCostPage();
+      case 7:
+        return const ScansReportPage();
+      case 8:
+        return const ScanSessionPage();
+      case 9:
+        return const Center(child: Text('Settings page coming soon'));
+      case 10:
+        return const Center(child: Text('Help & Support page coming soon'));
+      case 12:
+        return const AdminAuditPage();
+      default:
+        return const Center(child: Text('Page not found'));
     }
-    if (index == 8) {
-      return const AdminAuditPage();
-    }
-    if (index >= 0 && index < _pages.length) {
-      return _pages[index];
-    }
-    return const Center(
-      child: Text('Page not found'),
-    );
   }
 
   Widget _buildSidebar() {
@@ -273,10 +295,7 @@ class _AdminPanelState extends State<AdminPanel> {
                   elevation: 0,
                   color: Colors.white,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -319,23 +338,28 @@ class _AdminPanelState extends State<AdminPanel> {
           drawer: isDesktop
               ? null
               : Drawer(
-            elevation: 0,
-            backgroundColor: Colors.white,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
-            ),
-            child: SafeArea(
-              child: _buildSidebar(),
-            ),
-          ),
+                  elevation: 0,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
+                  child: SafeArea(child: _buildSidebar()),
+                ),
           body: SafeArea(
             child: isDesktop
                 ? Row(
-              children: [
-                SizedBox(
-                  width: 280,
-                  child: RepaintBoundary(
-                    child: _buildSidebar(),
+                    children: [
+                      SizedBox(
+                        width: 280,
+                        child: RepaintBoundary(child: _buildSidebar()),
+                      ),
+                      Expanded(child: _buildMainContent()),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      Expanded(child: _buildMainContent()),
+                    ],
                   ),
                 ),
                 Expanded(
@@ -351,21 +375,19 @@ class _AdminPanelState extends State<AdminPanel> {
               ],
             ),
           ),
-          floatingActionButton: isDesktop
-              ? null
-              : isTablet
+          floatingActionButton: isDesktop || isTablet
               ? null
               : FloatingActionButton.small(
-            elevation: 0,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black87,
-            onPressed: _isLoggingOut
-                ? null
-                : () {
-              _scaffoldKey.currentState?.openDrawer();
-            },
-            child: const Icon(Icons.menu_rounded),
-          ),
+                  elevation: 0,
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  onPressed: _isLoggingOut
+                      ? null
+                      : () {
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
+                  child: const Icon(Icons.menu_rounded),
+                ),
         );
       },
     );
