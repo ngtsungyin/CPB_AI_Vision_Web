@@ -269,6 +269,12 @@ class _AdminPanelState extends State<AdminPanel> {
             AdminHeader(
               title: _getPageTitle(_currentIndex),
               scaffoldKey: _scaffoldKey,
+              onNotificationPressed: () {
+                // Navigate to User Management page (index 1)
+                setState(() {
+                  _currentIndex = 1;
+                });
+              },
             ),
             Expanded(
               child: Container(
@@ -355,6 +361,19 @@ class _AdminPanelState extends State<AdminPanel> {
                       Expanded(child: _buildMainContent()),
                     ],
                   ),
+                ),
+                Expanded(
+                  child: _buildMainContent(),
+                ),
+              ],
+            )
+                : Column(
+              children: [
+                Expanded(
+                  child: _buildMainContent(),
+                ),
+              ],
+            ),
           ),
           floatingActionButton: isDesktop || isTablet
               ? null
