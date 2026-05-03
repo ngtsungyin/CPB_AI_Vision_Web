@@ -104,8 +104,9 @@ class _AdminPanelState extends State<AdminPanel> {
           ),
           actions: [
             TextButton(
-              onPressed:
-                  _isLoggingOut ? null : () => Navigator.of(context).pop(false),
+              onPressed: _isLoggingOut
+                  ? null
+                  : () => Navigator.of(context).pop(false),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF6B7280),
                 padding: const EdgeInsets.symmetric(
@@ -122,8 +123,9 @@ class _AdminPanelState extends State<AdminPanel> {
               ),
             ),
             ElevatedButton(
-              onPressed:
-                  _isLoggingOut ? null : () => Navigator.of(context).pop(true),
+              onPressed: _isLoggingOut
+                  ? null
+                  : () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: const Color(0xFFEF4444),
@@ -279,9 +281,7 @@ class _AdminPanelState extends State<AdminPanel> {
             Expanded(
               child: Container(
                 color: const Color(0xFFF7F8FA),
-                child: RepaintBoundary(
-                  child: _getPage(_currentIndex),
-                ),
+                child: RepaintBoundary(child: _getPage(_currentIndex)),
               ),
             ),
           ],
@@ -335,6 +335,7 @@ class _AdminPanelState extends State<AdminPanel> {
         return Scaffold(
           key: _scaffoldKey,
           backgroundColor: const Color(0xFFF7F8FA),
+
           drawer: isDesktop
               ? null
               : Drawer(
@@ -345,36 +346,18 @@ class _AdminPanelState extends State<AdminPanel> {
                   ),
                   child: SafeArea(child: _buildSidebar()),
                 ),
+
           body: SafeArea(
             child: isDesktop
                 ? Row(
                     children: [
-                      SizedBox(
-                        width: 280,
-                        child: RepaintBoundary(child: _buildSidebar()),
-                      ),
+                      SizedBox(width: 280, child: _buildSidebar()),
                       Expanded(child: _buildMainContent()),
                     ],
                   )
-                : Column(
-                    children: [
-                      Expanded(child: _buildMainContent()),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _buildMainContent(),
-                ),
-              ],
-            )
-                : Column(
-              children: [
-                Expanded(
-                  child: _buildMainContent(),
-                ),
-              ],
-            ),
+                : Column(children: [Expanded(child: _buildMainContent())]),
           ),
+
           floatingActionButton: isDesktop || isTablet
               ? null
               : FloatingActionButton.small(

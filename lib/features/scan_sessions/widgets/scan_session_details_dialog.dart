@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import '../helpers/scan_session_helper.dart';
 import '../services/scan_session_service.dart';
+import 'dart:convert';
 
 Future<void> showScanSessionDetailsDialog({
   required BuildContext context,
   required Map<String, dynamic> session,
   required ScanSessionService service,
 }) async {
-  final sessionId = safeText(session['sessionid']);
+  final sessionId =
+      session['id']?.toString() ?? session['sessionid']?.toString() ?? '';
 
+  // 2. Your debug print goes exactly here!
+  debugPrint('--- DEBUG: Fetching scans for Session ID: $sessionId ---');
   await showDialog(
     context: context,
     builder: (_) => Dialog(
@@ -124,9 +128,7 @@ Future<void> showScanSessionDetailsDialog({
                                   alignment: Alignment.centerLeft,
                                   child: Text(
                                     'No scan images found for this session.',
-                                    style: TextStyle(
-                                      color: Color(0xFF6B7280),
-                                    ),
+                                    style: TextStyle(color: Color(0xFF6B7280)),
                                   ),
                                 )
                               : Wrap(
@@ -164,19 +166,32 @@ Future<void> showScanSessionDetailsDialog({
   );
 }
 
-String buildScanImageUrl(Map<String, dynamic> scan) {
-  final imageUrl = scan['imageurl']?.toString().trim();
-  if (imageUrl != null && imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
-    return imageUrl;
+List<String> extractScanImages(Map<String, dynamic> scan) {
+  // Check imagepath first, fallback to imageurl
+  final rawData = (scan['imageurl'] ?? scan['imagepath'])?.toString().trim();
+
+  if (rawData == null || rawData.isEmpty) return [];
+
+  // 1. Handle the new JSON array of URLs
+  if (rawData.startsWith('[')) {
+    try {
+      final List<dynamic> parsedList = jsonDecode(rawData);
+      return parsedList.map((url) => url.toString()).toList();
+    } catch (e) {
+      debugPrint('Error parsing image array: $e');
+      return [];
+    }
   }
 
-  final imagePath = scan['imagepath']?.toString().trim();
-  if (imagePath == null || imagePath.isEmpty) return '';
+  // 2. Handle if it is already a single full URL
+  if (rawData.startsWith('http')) {
+    return [rawData];
+  }
 
+  // 3. Fallback for older relative paths
   const supabaseUrl = 'https://zjunvkimsgbkrwhvknhz.supabase.co';
   const bucket = 'CocoaPodEgg_Image';
-
-  return '$supabaseUrl/storage/v1/object/public/$bucket/$imagePath';
+  return ['$supabaseUrl/storage/v1/object/public/$bucket/$rawData'];
 }
 
 class _Hero extends StatelessWidget {
@@ -241,10 +256,7 @@ class _Hero extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'Scan session by ${getFarmerName(session)}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -281,7 +293,9 @@ class _ScanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = buildScanImageUrl(scan);
+    final imageUrls = extractScanImages(scan);
+    // Grab the first URL to use as the cover image
+    final displayUrl = imageUrls.isNotEmpty ? imageUrls.first : '';
     final gps = scan['gpslocation'];
 
     return Container(
@@ -301,7 +315,7 @@ class _ScanCard extends StatelessWidget {
               color: Color(0xFFE5E7EB),
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
-            child: imageUrl.isEmpty
+            child: displayUrl.isEmpty
                 ? const Center(
                     child: Icon(
                       Icons.image_not_supported_outlined,
@@ -310,10 +324,11 @@ class _ScanCard extends StatelessWidget {
                     ),
                   )
                 : ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                     child: Image.network(
-                      imageUrl,
+                      displayUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) {
                         return const Center(
@@ -339,7 +354,7 @@ class _ScanCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => _showImageModal(context, imageUrl),
+                        onPressed: () => _showImageModal(context, displayUrl),
                         icon: const Icon(Icons.image_outlined, size: 18),
                         label: const Text('Image'),
                       ),
@@ -348,10 +363,7 @@ class _ScanCard extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _showGpsModal(context, gps),
-                        icon: const Icon(
-                          Icons.location_on_outlined,
-                          size: 18,
-                        ),
+                        icon: const Icon(Icons.location_on_outlined, size: 18),
                         label: const Text('GPS'),
                       ),
                     ),
@@ -379,9 +391,7 @@ class _ScanCard extends StatelessWidget {
                   imageUrl,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) {
-                    return const Center(
-                      child: Text('Unable to load image.'),
-                    );
+                    return const Center(child: Text('Unable to load image.'));
                   },
                 ),
         ),
@@ -426,10 +436,7 @@ class _ScanCard extends StatelessWidget {
               const Text(
                 'Copy the coordinates above and paste them into Google Maps if needed.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
-                ),
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
               ),
             ],
           ),
@@ -481,11 +488,7 @@ class _SectionCard extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
 
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.trailing,
-  });
+  const _SectionCard({required this.title, required this.child, this.trailing});
 
   @override
   Widget build(BuildContext context) {
