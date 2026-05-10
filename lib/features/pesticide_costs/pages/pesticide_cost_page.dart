@@ -57,19 +57,25 @@ class _PesticideCostPageState extends State<PesticideCostPage> {
     });
   }
 
+  
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
+    return Container(
+  padding: const EdgeInsets.all(24),
+  color: Colors.white,
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
         const PesticideCostPageHeader(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         PesticideCostSearchSection(
           controller: searchController,
           onRefresh: fetch,
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         Expanded(
           child: PesticideCostTableSection(
@@ -106,6 +112,7 @@ class _PesticideCostPageState extends State<PesticideCostPage> {
           ),
         ),
       ],
+  )
     );
   }
 }

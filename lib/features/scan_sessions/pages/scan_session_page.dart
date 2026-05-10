@@ -18,7 +18,6 @@ class ScanSessionPage extends StatefulWidget {
 
 class _ScanSessionPageState extends State<ScanSessionPage> {
   final service = ScanSessionService(Supabase.instance.client);
-
   final searchController = TextEditingController();
 
   List<Map<String, dynamic>> data = [];
@@ -44,7 +43,6 @@ class _ScanSessionPageState extends State<ScanSessionPage> {
 
     try {
       final result = await service.fetchScanSessions();
-
       data = result;
       _applyFilters();
     } catch (e) {
@@ -77,6 +75,47 @@ class _ScanSessionPageState extends State<ScanSessionPage> {
     return values;
   }
 
+  List<String> get exportHeaders => [
+    'Farmer',
+    'Email',
+    'Farm',
+    'State',
+    'District',
+    'Village',
+    'Total Eggs',
+    'Average Eggs',
+    'Cumulative Eggs',
+    'Final Decision',
+    'Recommendation',
+    'Status',
+    'Session Date',
+    'Farm Latitude',
+    'Farm Longitude',
+  ];
+
+  List<List<dynamic>> get exportRows {
+    return filtered.map((item) {
+      return [
+        getFarmerName(item),
+        safeText(item['farmer']?['email']),
+        getFarmName(item),
+        safeText(item['farm']?['state']),
+        safeText(item['farm']?['district']),
+        safeText(item['farm']?['village']),
+        safeText(item['totaleggs']),
+        safeText(item['averageeggs']),
+        safeText(item['cumulativeeggs']),
+        safeText(item['finaldecision']),
+        safeText(item['recommendationreason']),
+        item['completed'] == true ? 'Completed' : 'Pending',
+        formatScanSessionDate(item['sessiondate']),
+        safeText(item['farm']?['latitude']),
+        safeText(item['farm']?['longitude']),
+      ];
+    }).toList();
+  }
+
+
   void _applyFilters() {
     final query = searchController.text.toLowerCase();
 
@@ -87,7 +126,8 @@ class _ScanSessionPageState extends State<ScanSessionPage> {
       final state = safeText(item['farm']?['state']).toLowerCase();
       final district = safeText(item['farm']?['district']).toLowerCase();
 
-      final matchesSearch = farmer.contains(query) ||
+      final matchesSearch =
+          farmer.contains(query) ||
           farm.contains(query) ||
           decision.toLowerCase().contains(query) ||
           state.contains(query) ||
@@ -118,16 +158,19 @@ class _ScanSessionPageState extends State<ScanSessionPage> {
   @override
   Widget build(BuildContext context) {
     final decisionValues = decisions;
+
     if (!decisionValues.contains(selectedDecision)) {
       selectedDecision = 'All';
     }
 
-    return Padding(
+    return Container(
       padding: const EdgeInsets.all(24),
+      color: Colors.white,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ScanSessionPageHeader(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           ScanSessionSearchSection(
             controller: searchController,
             selectedDecision: selectedDecision,
@@ -136,7 +179,7 @@ class _ScanSessionPageState extends State<ScanSessionPage> {
             onDecisionChanged: handleDecisionChanged,
             onRefresh: fetch,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Expanded(
             child: ScanSessionTableSection(
               isLoading: isLoading,

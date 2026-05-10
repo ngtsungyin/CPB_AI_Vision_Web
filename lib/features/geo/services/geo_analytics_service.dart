@@ -20,6 +20,40 @@ class GeoAnalyticsService extends BaseSupabaseService {
     'Labuan',
   ];
 
+  String? _normalizeState(String rawState) {
+    final value = rawState.trim().toLowerCase();
+
+    if (value.isEmpty) return null;
+
+    final aliases = {
+      'johor': 'Johor',
+      'kedah': 'Kedah',
+      'kelantan': 'Kelantan',
+      'melaka': 'Melaka',
+      'malacca': 'Melaka',
+      'negeri sembilan': 'Negeri Sembilan',
+      'n sembilan': 'Negeri Sembilan',
+      'pahang': 'Pahang',
+      'perak': 'Perak',
+      'perlis': 'Perlis',
+      'pulau pinang': 'Pulau Pinang',
+      'penang': 'Pulau Pinang',
+      'sabah': 'Sabah',
+      'sarawak': 'Sarawak',
+      'selangor': 'Selangor',
+      'terengganu': 'Terengganu',
+      'kuala lumpur': 'Kuala Lumpur',
+      'wp kuala lumpur': 'Kuala Lumpur',
+      'wilayah persekutuan kuala lumpur': 'Kuala Lumpur',
+      'putrajaya': 'Putrajaya',
+      'wp putrajaya': 'Putrajaya',
+      'labuan': 'Labuan',
+      'wp labuan': 'Labuan',
+    };
+
+    return aliases[value];
+  }
+
   Future<Map<String, Map<String, dynamic>>> getStateStatistics() async {
     final Map<String, Map<String, dynamic>> stats = {
       for (final state in malaysiaStates)
@@ -56,9 +90,11 @@ class GeoAnalyticsService extends BaseSupabaseService {
       for (final farm in farms) {
         final farmId = (farm['farmid'] ?? '').toString().toLowerCase();
         final ownerId = (farm['ownerid'] ?? '').toString().toLowerCase();
-        final state = (farm['state'] ?? '').toString().trim();
+        final rawState = (farm['state'] ?? '').toString();
 
-        if (farmId.isEmpty || state.isEmpty) continue;
+        final state = _normalizeState(rawState);
+
+        if (farmId.isEmpty || state == null) continue;
 
         farmIdToState[farmId] = state;
         stateToOwnerIds.putIfAbsent(state, () => <String>{});
@@ -66,12 +102,6 @@ class GeoAnalyticsService extends BaseSupabaseService {
         if (ownerId.isNotEmpty) {
           stateToOwnerIds[state]!.add(ownerId);
         }
-
-        stats.putIfAbsent(state, () => {
-              'farmers': 0,
-              'scans': 0,
-              'yield_revenue': 0.0,
-            });
       }
 
       for (final entry in stateToOwnerIds.entries) {
@@ -96,8 +126,9 @@ class GeoAnalyticsService extends BaseSupabaseService {
         if (state == null) continue;
 
         final revenueRaw = yieldRecord['salesrevenue'];
-        final revenue =
-            revenueRaw == null ? 0.0 : (revenueRaw as num).toDouble();
+        final revenue = revenueRaw == null
+            ? 0.0
+            : (revenueRaw as num).toDouble();
 
         stats[state]!['yield_revenue'] =
             (stats[state]!['yield_revenue'] as double) + revenue;

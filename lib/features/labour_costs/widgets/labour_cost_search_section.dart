@@ -4,6 +4,7 @@ class LabourCostSearchSection extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onRefresh;
 
+
   const LabourCostSearchSection({
     super.key,
     required this.controller,

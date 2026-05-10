@@ -58,55 +58,59 @@ class _LabourCostPageState extends State<LabourCostPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const LabourCostPageHeader(),
-        const SizedBox(height: 16),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const LabourCostPageHeader(),
+          const SizedBox(height: 24),
 
-        LabourCostSearchSection(
-          controller: searchController,
-          onRefresh: fetch,
-        ),
+          LabourCostSearchSection(
+            controller: searchController,
+            onRefresh: fetch,
+          ),
 
-        const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
-        Expanded(
-          child: LabourCostTableSection(
-            isLoading: isLoading,
-            items: filtered,
-            onView: (item) =>
-                showLabourCostDetailsDialog(context: context, item: item),
-            onEdit: (item) => showLabourCostEditDialog(
-              context: context,
-              item: item,
-              onSave: (updated) async {
-                await service.updateLabourCost(
-                  labourId: updated['labourid'],
-                  dailyLabourCost: updated['dailylabourcost'],
-                  farmAreaSprayPerDay: 0,
-                  workCostPerDay: updated['workcostperday'],
-                  wetCocoaBeanPricePerKg: 0,
-                  pesticideFrequencyPerYear: 0,
-                  expectedYieldPerHectare:
-                      updated['expectedyieldperhectare'],
-                );
-                fetch();
-              },
-            ),
-            onDelete: (item) async {
-              final confirm = await showDeleteLabourCostDialog(
+          Expanded(
+            child: LabourCostTableSection(
+              isLoading: isLoading,
+              items: filtered,
+              onView: (item) =>
+                  showLabourCostDetailsDialog(context: context, item: item),
+              onEdit: (item) => showLabourCostEditDialog(
                 context: context,
                 item: item,
-              );
+                onSave: (updated) async {
+                  await service.updateLabourCost(
+                    labourId: updated['labourid'],
+                    dailyLabourCost: updated['dailylabourcost'],
+                    farmAreaSprayPerDay: 0,
+                    workCostPerDay: updated['workcostperday'],
+                    wetCocoaBeanPricePerKg: 0,
+                    pesticideFrequencyPerYear: 0,
+                    expectedYieldPerHectare: updated['expectedyieldperhectare'],
+                  );
+                  fetch();
+                },
+              ),
+              onDelete: (item) async {
+                final confirm = await showDeleteLabourCostDialog(
+                  context: context,
+                  item: item,
+                );
 
-              if (confirm == true) {
-                await service.deleteLabourCost(item['labourid']);
-                fetch();
-              }
-            },
+                if (confirm == true) {
+                  await service.deleteLabourCost(item['labourid']);
+                  fetch();
+                }
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

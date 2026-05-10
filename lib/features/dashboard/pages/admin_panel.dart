@@ -14,8 +14,8 @@ import 'package:cpbaivision_app/features/admin/pages/admin_audit_page.dart';
 
 import 'package:cpbaivision_app/features/labour_costs/pages/labour_cost_page.dart';
 import 'package:cpbaivision_app/features/pesticide_costs/pages/pesticide_cost_page.dart';
-import 'package:cpbaivision_app/features/scans_report_page.dart';
 import 'package:cpbaivision_app/features/scan_sessions/pages/scan_session_page.dart';
+import 'package:cpbaivision_app/features/scan_reports/pages/scans_report_page.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -104,8 +104,9 @@ class _AdminPanelState extends State<AdminPanel> {
           ),
           actions: [
             TextButton(
-              onPressed:
-                  _isLoggingOut ? null : () => Navigator.of(context).pop(false),
+              onPressed: _isLoggingOut
+                  ? null
+                  : () => Navigator.of(context).pop(false),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF6B7280),
                 padding: const EdgeInsets.symmetric(
@@ -122,8 +123,9 @@ class _AdminPanelState extends State<AdminPanel> {
               ),
             ),
             ElevatedButton(
-              onPressed:
-                  _isLoggingOut ? null : () => Navigator.of(context).pop(true),
+              onPressed: _isLoggingOut
+                  ? null
+                  : () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 elevation: 0,
                 backgroundColor: const Color(0xFFEF4444),
@@ -178,7 +180,7 @@ class _AdminPanelState extends State<AdminPanel> {
   void _onItemSelected(int index) {
     if (_isLoggingOut) return;
 
-    if (index == 11) {
+    if (index == 12) {
       _handleLogout();
       return;
     }
@@ -209,15 +211,15 @@ class _AdminPanelState extends State<AdminPanel> {
       case 6:
         return 'Pesticide Cost';
       case 7:
-        return 'Scans Report';
-      case 8:
         return 'Scan Session';
+      case 8:
+        return 'Scans Report';
       case 9:
-        return 'Settings';
-      case 10:
-        return 'Help & Support';
-      case 12:
         return 'Admin Audit Log';
+      case 10:
+        return 'Settings';
+      case 11:
+        return 'Help & Support';
       default:
         return 'Admin Panel';
     }
@@ -240,15 +242,15 @@ class _AdminPanelState extends State<AdminPanel> {
       case 6:
         return const PesticideCostPage();
       case 7:
-        return const ScansReportPage();
-      case 8:
         return const ScanSessionPage();
+      case 8:
+        return const ScansReportPage();
       case 9:
-        return const Center(child: Text('Settings page coming soon'));
-      case 10:
-        return const Center(child: Text('Help & Support page coming soon'));
-      case 12:
         return const AdminAuditPage();
+      case 10:
+        return const Center(child: Text('Settings page coming soon'));
+      case 11:
+        return const Center(child: Text('Help & Support page coming soon'));
       default:
         return const Center(child: Text('Page not found'));
     }
@@ -279,9 +281,7 @@ class _AdminPanelState extends State<AdminPanel> {
             Expanded(
               child: Container(
                 color: const Color(0xFFF7F8FA),
-                child: RepaintBoundary(
-                  child: _getPage(_currentIndex),
-                ),
+                child: RepaintBoundary(child: _getPage(_currentIndex)),
               ),
             ),
           ],
@@ -335,6 +335,7 @@ class _AdminPanelState extends State<AdminPanel> {
         return Scaffold(
           key: _scaffoldKey,
           backgroundColor: const Color(0xFFF7F8FA),
+
           drawer: isDesktop
               ? null
               : Drawer(
@@ -345,36 +346,18 @@ class _AdminPanelState extends State<AdminPanel> {
                   ),
                   child: SafeArea(child: _buildSidebar()),
                 ),
+
           body: SafeArea(
             child: isDesktop
                 ? Row(
                     children: [
-                      SizedBox(
-                        width: 280,
-                        child: RepaintBoundary(child: _buildSidebar()),
-                      ),
+                      SizedBox(width: 280, child: _buildSidebar()),
                       Expanded(child: _buildMainContent()),
                     ],
                   )
-                : Column(
-                    children: [
-                      Expanded(child: _buildMainContent()),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _buildMainContent(),
-                ),
-              ],
-            )
-                : Column(
-              children: [
-                Expanded(
-                  child: _buildMainContent(),
-                ),
-              ],
-            ),
+                : Column(children: [Expanded(child: _buildMainContent())]),
           ),
+
           floatingActionButton: isDesktop || isTablet
               ? null
               : FloatingActionButton.small(

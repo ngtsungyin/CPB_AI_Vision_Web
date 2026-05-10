@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
-class ScanSessionSearchSection extends StatelessWidget {
+class ScanReportSearchSection extends StatelessWidget {
   final TextEditingController controller;
   final String selectedDecision;
   final List<String> decisions;
   final ValueChanged<String> onSearch;
   final ValueChanged<String?> onDecisionChanged;
   final VoidCallback onRefresh;
+  final VoidCallback onExportCsv;
+  final VoidCallback onExportPdf;
 
-  const ScanSessionSearchSection({
+  const ScanReportSearchSection({
     super.key,
     required this.controller,
     required this.selectedDecision,
@@ -16,6 +18,8 @@ class ScanSessionSearchSection extends StatelessWidget {
     required this.onSearch,
     required this.onDecisionChanged,
     required this.onRefresh,
+    required this.onExportCsv,
+    required this.onExportPdf,
   });
 
   @override
@@ -33,14 +37,13 @@ class ScanSessionSearchSection extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 850;
+          final isCompact = constraints.maxWidth < 980;
 
           final searchField = TextField(
             controller: controller,
             onChanged: onSearch,
             decoration: InputDecoration(
-              hintText:
-                  'Search by farmer, farm, decision, district, or state...',
+              hintText: 'Search by farmer, farm, decision, district, or state...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -78,18 +81,25 @@ class ScanSessionSearchSection extends StatelessWidget {
             label: const Text('Refresh'),
           );
 
-          if (isCompact) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                searchField,
-                const SizedBox(height: 12),
-                decisionFilter,
-                const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: refreshButton),
-              ],
-            );
-          }
+          final csvButton = ElevatedButton.icon(
+            onPressed: onExportCsv,
+            icon: const Icon(Icons.download),
+            label: const Text('CSV'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF111827),
+              foregroundColor: Colors.white,
+            ),
+          );
+
+          final pdfButton = ElevatedButton.icon(
+            onPressed: onExportPdf,
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+          );
 
           if (isCompact) {
             return Column(
@@ -99,7 +109,16 @@ class ScanSessionSearchSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 decisionFilter,
                 const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: refreshButton),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    refreshButton,
+                    csvButton,
+                    pdfButton,
+                  ],
+                ),
               ],
             );
           }
@@ -111,6 +130,10 @@ class ScanSessionSearchSection extends StatelessWidget {
               SizedBox(width: 220, child: decisionFilter),
               const SizedBox(width: 12),
               refreshButton,
+              const SizedBox(width: 12),
+              csvButton,
+              const SizedBox(width: 12),
+              pdfButton,
             ],
           );
         },
