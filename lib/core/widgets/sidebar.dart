@@ -151,7 +151,7 @@ class _SidebarState extends State<Sidebar> {
                 ),
                 _buildNavItem(
                   icon: Icons.fact_check_outlined,
-                  label: 'Admin Audit Log',
+                  label: 'Audit Log',
                   index: 9,
                 ),
                 const SizedBox(height: 24),
