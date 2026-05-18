@@ -43,7 +43,8 @@ class ScanReportSearchSection extends StatelessWidget {
             controller: controller,
             onChanged: onSearch,
             decoration: InputDecoration(
-              hintText: 'Search by farmer, farm, decision, district, or state...',
+              hintText:
+                  'Search by farmer, farm, decision, district, or state...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -84,7 +85,7 @@ class ScanReportSearchSection extends StatelessWidget {
           final csvButton = ElevatedButton.icon(
             onPressed: onExportCsv,
             icon: const Icon(Icons.download),
-            label: const Text('CSV'),
+            label: const Text('Selected CSV'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF111827),
               foregroundColor: Colors.white,
@@ -94,7 +95,7 @@ class ScanReportSearchSection extends StatelessWidget {
           final pdfButton = ElevatedButton.icon(
             onPressed: onExportPdf,
             icon: const Icon(Icons.picture_as_pdf_outlined),
-            label: const Text('PDF'),
+            label: const Text('Selected PDF'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
@@ -113,11 +114,7 @@ class ScanReportSearchSection extends StatelessWidget {
                   alignment: WrapAlignment.end,
                   spacing: 12,
                   runSpacing: 12,
-                  children: [
-                    refreshButton,
-                    csvButton,
-                    pdfButton,
-                  ],
+                  children: [refreshButton, csvButton, pdfButton],
                 ),
               ],
             );
