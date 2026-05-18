@@ -1,3 +1,4 @@
+// audits_table_section.dart
 import 'package:flutter/material.dart';
 import 'package:cpbaivision_app/shared/models/database_models.dart';
 import 'package:cpbaivision_app/features/admin/helpers/admin_audit_log_helper.dart';
@@ -19,7 +20,7 @@ class AuditTableSection extends StatelessWidget {
       isLoading: isLoading,
       items: records,
       rowsPerPage: 10,
-      emptyMessage: 'No audit logs found',
+      emptyMessage: 'No admin audit logs found',
       columns: [
         AdminTableColumn<AdminAuditLog>(
           label: 'Admin User',
@@ -31,41 +32,28 @@ class AuditTableSection extends StatelessWidget {
           label: 'Action',
           width: 100,
           flexGrow: 0.8,
-          cellBuilder: (_, record) => AdminTableText(
-            record.action.toUpperCase(),
-          ),
+          cellBuilder: (_, record) =>
+              AdminTableText(record.action.toUpperCase()),
         ),
         AdminTableColumn<AdminAuditLog>(
           label: 'Target Type',
-          width: 110,
-          flexGrow: 0.9,
-          cellBuilder: (_, record) => AdminTableText(
-            record.targetType ?? '-',
-          ),
-        ),
-        AdminTableColumn<AdminAuditLog>(
-          label: 'Target ID',
           width: 120,
           flexGrow: 1.0,
-          cellBuilder: (_, record) => AdminTableText(
-            record.targetId ?? '-',
-          ),
+          cellBuilder: (_, record) => AdminTableText(record.targetType ?? '-'),
         ),
+        // TARGET ID REMOVED HERE
         AdminTableColumn<AdminAuditLog>(
           label: 'Details',
-          width: 250,
-          flexGrow: 2.0, // Extra flex space for longer details text
-          cellBuilder: (_, record) => AdminTableText(
-            record.details ?? '-',
-          ),
+          width: 280,
+          flexGrow: 2.2, // Increased flex slightly since we removed a column
+          cellBuilder: (_, record) => AdminTableText(record.details ?? '-'),
         ),
         AdminTableColumn<AdminAuditLog>(
           label: 'Log Time',
           width: 140,
           flexGrow: 1.1,
-          cellBuilder: (_, record) => AdminTableText(
-            formatLogTime(record.logTime), 
-          ),
+          cellBuilder: (_, record) =>
+              AdminTableText(formatLogTime(record.logTime)),
         ),
       ],
     );
