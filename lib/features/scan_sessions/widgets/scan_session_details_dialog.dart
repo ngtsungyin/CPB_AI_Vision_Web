@@ -59,6 +59,7 @@ Future<void> showScanSessionDetailsDialog({
                   }
 
                   final scans = snapshot.data ?? [];
+                  final sampleGroups = buildSampleScanGroups(scans);
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -121,11 +122,11 @@ Future<void> showScanSessionDetailsDialog({
                         _SectionCard(
                           title: 'Related Scan Images & GPS',
                           trailing: _Badge(
-                            label: '${scans.length} scans',
+                            label: '${sampleGroups.length} sample(s)',
                             backgroundColor: const Color(0xFFEEF2FF),
                             textColor: const Color(0xFF4338CA),
                           ),
-                          child: scans.isEmpty
+                          child: sampleGroups.isEmpty
                               ? const Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
@@ -136,8 +137,8 @@ Future<void> showScanSessionDetailsDialog({
                               : Wrap(
                                   spacing: 14,
                                   runSpacing: 14,
-                                  children: scans
-                                      .map((scan) => _ScanCard(scan: scan))
+                                  children: sampleGroups
+                                      .map((group) => _ScanCard(group: group))
                                       .toList(),
                                 ),
                         ),
@@ -330,15 +331,29 @@ class _Hero extends StatelessWidget {
 
 class ScanImageItem {
   final String imageUrl;
+  final int sampleNumber;
   final int podIndex;
   final int imageIndex;
   final List<List<double>> boxes;
 
   const ScanImageItem({
     required this.imageUrl,
+    required this.sampleNumber,
     required this.podIndex,
     required this.imageIndex,
     required this.boxes,
+  });
+}
+
+class SampleScanGroup {
+  final int sampleNumber;
+  final Map<String, dynamic> scan;
+  final List<ScanImageItem> imageItems;
+
+  const SampleScanGroup({
+    required this.sampleNumber,
+    required this.scan,
+    required this.imageItems,
   });
 }
 
@@ -384,21 +399,76 @@ List<List<double>> parseBoxes(dynamic rawBoxes) {
   return parsed;
 }
 
-List<ScanImageItem> buildGroupedScanImages(Map<String, dynamic> scan) {
+bool _isLocalOnlyImagePath(String path) {
+  final value = path.trim();
+
+  if (value.isEmpty) return true;
+
+  // Admin web cannot open local Android cache paths.
+  return value.startsWith('/data/') ||
+      value.startsWith('file://') ||
+      value.contains('/cache/') ||
+      value.contains('image_picker') ||
+      value.contains('scaled_');
+}
+
+String _toPublicScanImageUrl(String rawPathOrUrl) {
+  const supabaseUrl = 'https://zjunvkimsgbkrwhvknhz.supabase.co';
+  const bucket = 'CocoaPodEgg_Image';
+
+  final value = rawPathOrUrl.trim();
+
+  if (value.startsWith('http')) return value;
+  if (_isLocalOnlyImagePath(value)) return '';
+
+  return '$supabaseUrl/storage/v1/object/public/$bucket/$value';
+}
+
+List<dynamic> _decodePossibleList(dynamic raw) {
+  if (raw == null) return [];
+
+  if (raw is List) return raw;
+
+  final text = raw.toString().trim();
+
+  if (text.isEmpty || text == '[]' || text.toLowerCase() == 'null') {
+    return [];
+  }
+
+  try {
+    final decoded = jsonDecode(text);
+
+    if (decoded is List) return decoded;
+    if (decoded is String && decoded.trim().isNotEmpty) return [decoded.trim()];
+    if (decoded is Map) return [decoded];
+  } catch (_) {
+    return [text];
+  }
+
+  return [];
+}
+
+List<ScanImageItem> buildGroupedScanImages(
+  Map<String, dynamic> scan, {
+  required int sampleNumber,
+}) {
   final rawImages = scan['scan_images'];
 
   if (rawImages is List && rawImages.isNotEmpty) {
     final items = rawImages
         .whereType<Map>()
         .map((item) {
-          final url = item['imageurl']?.toString().trim() ?? '';
+          final rawUrl = item['imageurl']?.toString().trim() ?? '';
+          final rawPath = item['imagepath']?.toString().trim() ?? '';
+          final url = rawUrl.startsWith('http')
+              ? rawUrl
+              : _toPublicScanImageUrl(rawPath);
 
-          if (url.isEmpty || !url.startsWith('http')) {
-            return null;
-          }
+          if (url.isEmpty || !url.startsWith('http')) return null;
 
           return ScanImageItem(
             imageUrl: url,
+            sampleNumber: sampleNumber,
             podIndex: int.tryParse(item['podindex']?.toString() ?? '') ?? 0,
             imageIndex: int.tryParse(item['imageindex']?.toString() ?? '') ?? 0,
             boxes: parseBoxes(item['boxes']),
@@ -413,21 +483,101 @@ List<ScanImageItem> buildGroupedScanImages(Map<String, dynamic> scan) {
       return a.imageIndex.compareTo(b.imageIndex);
     });
 
-    return items;
+    if (items.isNotEmpty) return items;
   }
 
-  // Fallback for old data.
-  final oldUrls = buildScanImageUrls(scan);
+  // Fallback for older rows where the scan table itself contains either:
+  // 1) imageurl = JSON list of public URLs, or
+  // 2) imagepath = JSON list of objects/paths.
+  final legacyItems = <ScanImageItem>[];
 
-  return List.generate(
-    oldUrls.length,
-    (index) => ScanImageItem(
-      imageUrl: oldUrls[index],
-      podIndex: 0,
-      imageIndex: index,
-      boxes: [],
-    ),
-  );
+  final urlValues = _decodePossibleList(scan['imageurl']);
+  for (int i = 0; i < urlValues.length; i++) {
+    final raw = urlValues[i];
+    final url = raw is Map
+        ? _toPublicScanImageUrl(
+            (raw['imageurl'] ?? raw['imagepath'] ?? raw['path'] ?? '')
+                .toString(),
+          )
+        : _toPublicScanImageUrl(raw.toString());
+
+    if (url.isEmpty || !url.startsWith('http')) continue;
+
+    legacyItems.add(
+      ScanImageItem(
+        imageUrl: url,
+        sampleNumber: sampleNumber,
+        podIndex: raw is Map
+            ? int.tryParse(raw['podindex']?.toString() ?? '') ?? 0
+            : 0,
+        imageIndex: raw is Map
+            ? int.tryParse(raw['imageindex']?.toString() ?? '') ?? i
+            : i,
+        boxes: raw is Map ? parseBoxes(raw['boxes']) : [],
+      ),
+    );
+  }
+
+  if (legacyItems.isNotEmpty) return legacyItems;
+
+  final pathValues = _decodePossibleList(scan['imagepath']);
+  for (int i = 0; i < pathValues.length; i++) {
+    final raw = pathValues[i];
+    final path = raw is Map
+        ? (raw['imagepath'] ?? raw['path'] ?? raw['imageurl'] ?? '').toString()
+        : raw.toString();
+    final url = _toPublicScanImageUrl(path);
+
+    if (url.isEmpty || !url.startsWith('http')) continue;
+
+    legacyItems.add(
+      ScanImageItem(
+        imageUrl: url,
+        sampleNumber: sampleNumber,
+        podIndex: raw is Map
+            ? int.tryParse(raw['podindex']?.toString() ?? '') ?? 0
+            : 0,
+        imageIndex: raw is Map
+            ? int.tryParse(raw['imageindex']?.toString() ?? '') ?? i
+            : i,
+        boxes: raw is Map ? parseBoxes(raw['boxes']) : [],
+      ),
+    );
+  }
+
+  legacyItems.sort((a, b) {
+    final podCompare = a.podIndex.compareTo(b.podIndex);
+    if (podCompare != 0) return podCompare;
+    return a.imageIndex.compareTo(b.imageIndex);
+  });
+
+  return legacyItems;
+}
+
+List<SampleScanGroup> buildSampleScanGroups(List<Map<String, dynamic>> scans) {
+  final sortedScans = [...scans];
+
+  sortedScans.sort((a, b) {
+    DateTime parseDate(Map<String, dynamic> scan) {
+      final raw = scan['scandate']?.toString();
+      return raw == null
+          ? DateTime.fromMillisecondsSinceEpoch(0)
+          : DateTime.tryParse(raw) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    return parseDate(a).compareTo(parseDate(b));
+  });
+
+  return sortedScans.asMap().entries.map((entry) {
+    final sampleNumber = entry.key + 1;
+    final scan = entry.value;
+
+    return SampleScanGroup(
+      sampleNumber: sampleNumber,
+      scan: scan,
+      imageItems: buildGroupedScanImages(scan, sampleNumber: sampleNumber),
+    );
+  }).toList();
 }
 
 class _GpsPoint {
@@ -560,13 +710,14 @@ class AdminBoxPainter extends CustomPainter {
 }
 
 class _ScanCard extends StatelessWidget {
-  final Map<String, dynamic> scan;
+  final SampleScanGroup group;
 
-  const _ScanCard({required this.scan});
+  const _ScanCard({required this.group});
 
   @override
   Widget build(BuildContext context) {
-    final imageItems = buildGroupedScanImages(scan);
+    final scan = group.scan;
+    final imageItems = group.imageItems;
     final imageUrls = imageItems.map((item) => item.imageUrl).toList();
     final firstImageUrl = imageUrls.isNotEmpty ? imageUrls.first : '';
 
@@ -688,7 +839,7 @@ class _ScanCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        '${imageUrls.length} image(s)',
+                        'Sample ${group.sampleNumber} • ${imageUrls.length} image(s)',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -750,17 +901,17 @@ class _ScanCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.collections_outlined,
                           size: 17,
                           color: Color(0xFF2563EB),
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          'Sample Images',
-                          style: TextStyle(
+                          'Sample ${group.sampleNumber} Images',
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF111827),
@@ -775,7 +926,7 @@ class _ScanCard extends StatelessWidget {
 
                       final title = podIndex <= 0
                           ? 'Ungrouped Images'
-                          : 'Sample/Pod $podIndex';
+                          : 'Pod $podIndex';
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -823,9 +974,7 @@ class _ScanCard extends StatelessWidget {
                                     const SizedBox(width: 8),
                                 itemBuilder: (context, index) {
                                   final item = podImages[index];
-                                  final globalIndex = imageItems.indexOf(
-                                    item,
-                                  );
+                                  final globalIndex = imageItems.indexOf(item);
 
                                   return InkWell(
                                     onTap: () => _showImageModal(
@@ -888,6 +1037,7 @@ class _ScanCard extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
+                      _miniDetail('Sample', 'Sample ${group.sampleNumber}'),
                       _miniDetail(
                         'Confidence',
                         safeText(scan['confidencescore']),
@@ -1340,8 +1490,8 @@ class _BoundingBoxImageDialogState extends State<_BoundingBoxImageDialog> {
                         unselectedLabelColor: const Color(0xFF6B7280),
                         tabs: imageItems.map((item) {
                           final podLabel = item.podIndex <= 0
-                              ? 'Image ${item.imageIndex + 1}'
-                              : 'Pod ${item.podIndex} • Img ${item.imageIndex + 1}';
+                              ? 'Sample ${item.sampleNumber} • Image ${item.imageIndex + 1}'
+                              : 'Sample ${item.sampleNumber} • Pod ${item.podIndex} • Img ${item.imageIndex + 1}';
 
                           return Tab(text: podLabel);
                         }).toList(),
