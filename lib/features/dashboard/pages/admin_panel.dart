@@ -419,7 +419,7 @@ class _QuickGuideSection extends StatelessWidget {
             number: '04',
             title: 'Track admin actions',
             description:
-                'Use Admin Audit Log to review important administrative activities.',
+                'Use Audit Log to review important administrative activities.',
           ),
         ],
       ),
@@ -974,7 +974,7 @@ class _AdminPanelState extends State<AdminPanel> {
       case 9:
         return 'AI Analytics';
       case 10:
-        return 'Admin Audit Log';
+        return 'Audit Log';
       case 11:
         return 'Settings';
       case 12:
@@ -1054,7 +1054,7 @@ class _AdminPanelState extends State<AdminPanel> {
       case 10:
         return Showcase(
           key: _auditTourKey,
-          title: 'Admin Audit Log',
+          title: 'Audit Log',
           description:
               'This page records important admin actions, helping improve accountability and traceability.',
           targetBorderRadius: BorderRadius.circular(18),
