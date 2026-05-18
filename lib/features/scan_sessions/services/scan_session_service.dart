@@ -6,7 +6,9 @@ class ScanSessionService {
   final SupabaseClient _client;
 
   Future<List<Map<String, dynamic>>> fetchScanSessions() async {
-    final response = await _client.from('scan_sessions').select('''
+    final response = await _client
+        .from('scan_sessions')
+        .select('''
       *,
       farmer:users!scan_sessions_farmerid_fkey(
         firstname,
@@ -21,7 +23,8 @@ class ScanSessionService {
         latitude,
         longitude
       )
-    ''').order('sessiondate', ascending: false);
+    ''')
+        .order('sessiondate', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);
   }
@@ -32,17 +35,27 @@ class ScanSessionService {
     final response = await _client
         .from('scans')
         .select('''
-          scanid,
-          farmerid,
-          farmid,
-          imageurl,
-          imagepath,
-          eggsdetected,
-          confidencescore,
-          scandate,
-          gpslocation,
-          sessionid
-        ''')
+      scanid,
+      farmerid,
+      farmid,
+      sessionid,
+      eggsdetected,
+      confidencescore,
+      scandate,
+      gpslocation,
+      podindex,
+      imageurl,
+      imagepath,
+      scan_images (
+  imageid,
+  imageurl,
+  imagepath,
+  imageindex,
+  podindex,
+  boxes,
+  createdat
+)
+    ''')
         .eq('sessionid', sessionId)
         .order('scandate', ascending: true);
 

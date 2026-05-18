@@ -5,16 +5,28 @@ import '../helpers/scan_report_helper.dart';
 class ScanReportTableSection extends StatelessWidget {
   final bool isLoading;
   final List<Map<String, dynamic>> items;
+  final Set<String> selectedIds;
   final Function(Map<String, dynamic>) onView;
   final Function(Map<String, dynamic>) onDelete;
+  final Function(Map<String, dynamic>) onExportCsv;
+  final Function(Map<String, dynamic>) onExportPdf;
+  final Function(Map<String, dynamic>, bool?) onSelectionChanged;
 
   const ScanReportTableSection({
     super.key,
     required this.isLoading,
     required this.items,
+    required this.selectedIds,
     required this.onView,
     required this.onDelete,
+    required this.onExportCsv,
+    required this.onExportPdf,
+    required this.onSelectionChanged,
   });
+
+  String _reportId(Map<String, dynamic> item) {
+    return item['reportid']?.toString() ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +36,19 @@ class ScanReportTableSection extends StatelessWidget {
       rowsPerPage: 10,
       emptyMessage: 'No scan reports found',
       columns: [
+        AdminTableColumn(
+          label: 'Select',
+          width: 80,
+          flexGrow: 0,
+          cellBuilder: (_, item) {
+            final id = _reportId(item);
+
+            return Checkbox(
+              value: selectedIds.contains(id),
+              onChanged: (value) => onSelectionChanged(item, value),
+            );
+          },
+        ),
         AdminTableColumn(
           label: 'Farmer',
           width: 180,
@@ -40,53 +65,47 @@ class ScanReportTableSection extends StatelessWidget {
           label: 'Samples',
           width: 100,
           flexGrow: 0.6,
-          cellBuilder: (_, item) => AdminTableText(
-            safeText(item['totalsample']),
-          ),
+          cellBuilder: (_, item) =>
+              AdminTableText(safeText(item['totalsample'])),
         ),
         AdminTableColumn(
           label: 'Eggs',
           width: 100,
           flexGrow: 0.6,
-          cellBuilder: (_, item) => AdminTableText(
-            safeText(item['cumulativeeggs']),
-          ),
+          cellBuilder: (_, item) =>
+              AdminTableText(safeText(item['cumulativeeggs'])),
         ),
         AdminTableColumn(
           label: 'Decision',
           width: 170,
           flexGrow: 1,
-          cellBuilder: (_, item) => _DecisionBadge(
-            decision: safeText(item['finaldecision']),
-          ),
+          cellBuilder: (_, item) =>
+              _DecisionBadge(decision: safeText(item['finaldecision'])),
         ),
         AdminTableColumn(
           label: 'Pesticide Cost',
           width: 140,
           flexGrow: 0.8,
-          cellBuilder: (_, item) => AdminTableText(
-            formatRM(item['pesticidecost']),
-          ),
+          cellBuilder: (_, item) =>
+              AdminTableText(formatRM(item['pesticidecost'])),
         ),
         AdminTableColumn(
           label: 'Labour Cost',
           width: 140,
           flexGrow: 0.8,
-          cellBuilder: (_, item) => AdminTableText(
-            formatRM(item['dailylabourcost']),
-          ),
+          cellBuilder: (_, item) =>
+              AdminTableText(formatRM(item['dailylabourcost'])),
         ),
         AdminTableColumn(
           label: 'Created',
           width: 140,
           flexGrow: 0.8,
-          cellBuilder: (_, item) => AdminTableText(
-            formatScanReportDate(item['createdat']),
-          ),
+          cellBuilder: (_, item) =>
+              AdminTableText(formatScanReportDate(item['createdat'])),
         ),
         AdminTableColumn(
           label: 'Actions',
-          width: 140,
+          width: 230,
           flexGrow: 0,
           cellBuilder: (_, item) => AdminTableActions(
             actions: [
@@ -94,6 +113,19 @@ class ScanReportTableSection extends StatelessWidget {
                 icon: const Icon(Icons.visibility, color: Colors.blue),
                 tooltip: 'View report details',
                 onPressed: () => onView(item),
+              ),
+              IconButton(
+                icon: const Icon(Icons.download, color: Color(0xFF111827)),
+                tooltip: 'Export this report as CSV',
+                onPressed: () => onExportCsv(item),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.picture_as_pdf_outlined,
+                  color: Colors.red,
+                ),
+                tooltip: 'Export this report as PDF',
+                onPressed: () => onExportPdf(item),
               ),
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),

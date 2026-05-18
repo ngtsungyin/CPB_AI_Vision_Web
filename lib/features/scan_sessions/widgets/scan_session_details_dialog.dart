@@ -1,4 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../helpers/scan_session_helper.dart';
 import '../services/scan_session_service.dart';
 
@@ -124,9 +130,7 @@ Future<void> showScanSessionDetailsDialog({
                                   alignment: Alignment.centerLeft,
                                   child: Text(
                                     'No scan images found for this session.',
-                                    style: TextStyle(
-                                      color: Color(0xFF6B7280),
-                                    ),
+                                    style: TextStyle(color: Color(0xFF6B7280)),
                                   ),
                                 )
                               : Wrap(
@@ -164,19 +168,72 @@ Future<void> showScanSessionDetailsDialog({
   );
 }
 
-String buildScanImageUrl(Map<String, dynamic> scan) {
-  final imageUrl = scan['imageurl']?.toString().trim();
-  if (imageUrl != null && imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
-    return imageUrl;
-  }
-
-  final imagePath = scan['imagepath']?.toString().trim();
-  if (imagePath == null || imagePath.isEmpty) return '';
-
+List<String> buildScanImageUrls(Map<String, dynamic> scan) {
   const supabaseUrl = 'https://zjunvkimsgbkrwhvknhz.supabase.co';
   const bucket = 'CocoaPodEgg_Image';
 
-  return '$supabaseUrl/storage/v1/object/public/$bucket/$imagePath';
+  List<String> extractValues(dynamic raw) {
+    if (raw == null) return [];
+
+    final text = raw.toString().trim();
+
+    if (text.isEmpty || text == '[]' || text.toLowerCase() == 'null') {
+      return [];
+    }
+
+    try {
+      final decoded = jsonDecode(text);
+
+      if (decoded is List) {
+        return decoded
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+
+      if (decoded is String && decoded.trim().isNotEmpty) {
+        return [decoded.trim()];
+      }
+    } catch (_) {
+      return [text];
+    }
+
+    return [];
+  }
+
+  final urls = extractValues(
+    scan['imageurl'],
+  ).where((url) => url.startsWith('http')).toList();
+
+  if (urls.isNotEmpty) {
+    return urls;
+  }
+
+  final paths = extractValues(scan['imagepath']);
+
+  return paths
+      .where((path) {
+        if (path.isEmpty) return false;
+
+        // Web cannot open local Android cache paths.
+        if (path.startsWith('/data/') ||
+            path.startsWith('file://') ||
+            path.contains('/cache/') ||
+            path.contains('image_picker') ||
+            path.contains('scaled_')) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((path) {
+        if (path.startsWith('http')) {
+          return path;
+        }
+
+        return '$supabaseUrl/storage/v1/object/public/$bucket/$path';
+      })
+      .toList();
 }
 
 class _Hero extends StatelessWidget {
@@ -241,10 +298,7 @@ class _Hero extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'Scan session by ${getFarmerName(session)}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -274,6 +328,237 @@ class _Hero extends StatelessWidget {
   }
 }
 
+class ScanImageItem {
+  final String imageUrl;
+  final int podIndex;
+  final int imageIndex;
+  final List<List<double>> boxes;
+
+  const ScanImageItem({
+    required this.imageUrl,
+    required this.podIndex,
+    required this.imageIndex,
+    required this.boxes,
+  });
+}
+
+List<List<double>> parseBoxes(dynamic rawBoxes) {
+  if (rawBoxes == null) return [];
+
+  dynamic value = rawBoxes;
+
+  if (rawBoxes is String) {
+    try {
+      value = jsonDecode(rawBoxes);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  if (value is! List) return [];
+
+  final parsed = <List<double>>[];
+
+  for (final item in value) {
+    if (item is Map) {
+      final x1 = double.tryParse(item['x1']?.toString() ?? '');
+      final y1 = double.tryParse(item['y1']?.toString() ?? '');
+      final x2 = double.tryParse(item['x2']?.toString() ?? '');
+      final y2 = double.tryParse(item['y2']?.toString() ?? '');
+
+      if (x1 != null && y1 != null && x2 != null && y2 != null) {
+        parsed.add([x1, y1, x2, y2]);
+      }
+    } else if (item is List && item.length >= 4) {
+      final x1 = double.tryParse(item[0].toString());
+      final y1 = double.tryParse(item[1].toString());
+      final x2 = double.tryParse(item[2].toString());
+      final y2 = double.tryParse(item[3].toString());
+
+      if (x1 != null && y1 != null && x2 != null && y2 != null) {
+        parsed.add([x1, y1, x2, y2]);
+      }
+    }
+  }
+
+  return parsed;
+}
+
+List<ScanImageItem> buildGroupedScanImages(Map<String, dynamic> scan) {
+  final rawImages = scan['scan_images'];
+
+  if (rawImages is List && rawImages.isNotEmpty) {
+    final items = rawImages
+        .whereType<Map>()
+        .map((item) {
+          final url = item['imageurl']?.toString().trim() ?? '';
+
+          if (url.isEmpty || !url.startsWith('http')) {
+            return null;
+          }
+
+          return ScanImageItem(
+            imageUrl: url,
+            podIndex: int.tryParse(item['podindex']?.toString() ?? '') ?? 0,
+            imageIndex: int.tryParse(item['imageindex']?.toString() ?? '') ?? 0,
+            boxes: parseBoxes(item['boxes']),
+          );
+        })
+        .whereType<ScanImageItem>()
+        .toList();
+
+    items.sort((a, b) {
+      final podCompare = a.podIndex.compareTo(b.podIndex);
+      if (podCompare != 0) return podCompare;
+      return a.imageIndex.compareTo(b.imageIndex);
+    });
+
+    return items;
+  }
+
+  // Fallback for old data.
+  final oldUrls = buildScanImageUrls(scan);
+
+  return List.generate(
+    oldUrls.length,
+    (index) => ScanImageItem(
+      imageUrl: oldUrls[index],
+      podIndex: 0,
+      imageIndex: index,
+      boxes: [],
+    ),
+  );
+}
+
+class _GpsPoint {
+  final double latitude;
+  final double longitude;
+
+  const _GpsPoint({required this.latitude, required this.longitude});
+}
+
+_GpsPoint? parseGpsPoint(dynamic gps) {
+  if (gps == null) return null;
+
+  try {
+    dynamic value = gps;
+
+    if (gps is String) {
+      final text = gps.trim();
+
+      if (text.isEmpty || text.toLowerCase() == 'null') {
+        return null;
+      }
+
+      try {
+        value = jsonDecode(text);
+      } catch (_) {
+        final parts = text.split(',');
+
+        if (parts.length >= 2) {
+          final lat = double.tryParse(parts[0].trim());
+          final lng = double.tryParse(parts[1].trim());
+
+          if (lat != null && lng != null) {
+            return _GpsPoint(latitude: lat, longitude: lng);
+          }
+        }
+
+        return null;
+      }
+    }
+
+    if (value is Map) {
+      final latRaw =
+          value['latitude'] ??
+          value['lat'] ??
+          value['Latitude'] ??
+          value['LAT'];
+
+      final lngRaw =
+          value['longitude'] ??
+          value['lng'] ??
+          value['lon'] ??
+          value['Longitude'] ??
+          value['LNG'] ??
+          value['LON'];
+
+      final lat = double.tryParse(latRaw.toString());
+      final lng = double.tryParse(lngRaw.toString());
+
+      if (lat != null && lng != null) {
+        return _GpsPoint(latitude: lat, longitude: lng);
+      }
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+}
+
+class AdminBoxPainter extends CustomPainter {
+  final List<List<double>> boxes;
+
+  AdminBoxPainter(this.boxes);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final boxPaint = Paint()
+      ..color = const Color(0xFF22C55E)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+
+    final labelPaint = Paint()
+      ..color = const Color(0xCC16A34A)
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < boxes.length; i++) {
+      final box = boxes[i];
+
+      if (box.length < 4) continue;
+
+      final rect = Rect.fromLTRB(
+        box[0] * size.width,
+        box[1] * size.height,
+        box[2] * size.width,
+        box[3] * size.height,
+      );
+
+      canvas.drawRect(rect, boxPaint);
+
+      final labelRect = Rect.fromLTWH(
+        rect.left,
+        (rect.top - 18).clamp(0, size.height),
+        48,
+        18,
+      );
+
+      canvas.drawRect(labelRect, labelPaint);
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: 'Egg ${i + 1}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(labelRect.left + 4, labelRect.top + 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant AdminBoxPainter oldDelegate) {
+    return oldDelegate.boxes != boxes;
+  }
+}
+
 class _ScanCard extends StatelessWidget {
   final Map<String, dynamic> scan;
 
@@ -281,78 +566,380 @@ class _ScanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = buildScanImageUrl(scan);
+    final imageItems = buildGroupedScanImages(scan);
+    final imageUrls = imageItems.map((item) => item.imageUrl).toList();
+    final firstImageUrl = imageUrls.isNotEmpty ? imageUrls.first : '';
+
+    final groupedByPod = <int, List<ScanImageItem>>{};
+
+    for (final item in imageItems) {
+      groupedByPod.putIfAbsent(item.podIndex, () => []).add(item);
+    }
     final gps = scan['gpslocation'];
 
     return Container(
-      width: 260,
+      width: 320,
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 155,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: imageUrl.isEmpty
-                ? const Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 40,
-                      color: Color(0xFF6B7280),
-                    ),
-                  )
-                : ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) {
-                        return const Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            size: 40,
-                            color: Color(0xFF6B7280),
-                          ),
-                        );
-                      },
-                    ),
+          Stack(
+            children: [
+              Container(
+                height: 185,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                ),
+                child: firstImageUrl.isEmpty
+                    ? const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_not_supported_outlined,
+                              size: 42,
+                              color: Color(0xFF9CA3AF),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'No scan image',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(22),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              firstImageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) {
+                                return const Center(
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    size: 42,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                );
+                              },
+                            ),
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withOpacity(0.10),
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.38),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.92),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.science_outlined,
+                        size: 14,
+                        color: Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${imageUrls.length} image(s)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.72),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.egg_alt_outlined,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${safeText(scan['eggsdetected'])} eggs',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
+
+          if (imageItems.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.collections_outlined,
+                          size: 17,
+                          color: Color(0xFF2563EB),
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Sample Images',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...groupedByPod.entries.map((entry) {
+                      final podIndex = entry.key;
+                      final podImages = entry.value;
+
+                      final title = podIndex <= 0
+                          ? 'Ungrouped Images'
+                          : 'Sample/Pod $podIndex';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 7,
+                                  height: 7,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${podImages.length} image(s)',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 7),
+                            SizedBox(
+                              height: 58,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: podImages.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 8),
+                                itemBuilder: (context, index) {
+                                  final item = podImages[index];
+                                  final globalIndex = imageItems.indexOf(
+                                    item,
+                                  );
+
+                                  return InkWell(
+                                    onTap: () => _showImageModal(
+                                      context,
+                                      imageItems,
+                                      initialIndex: globalIndex < 0
+                                          ? 0
+                                          : globalIndex,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: 58,
+                                      height: 58,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE5E7EB),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFD1D5DB),
+                                        ),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(11),
+                                        child: Image.network(
+                                          item.imageUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) {
+                                            return const Icon(
+                                              Icons.broken_image_outlined,
+                                              size: 22,
+                                              color: Color(0xFF6B7280),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Column(
               children: [
-                _miniDetail('Eggs', safeText(scan['eggsdetected'])),
-                _miniDetail('Confidence', safeText(scan['confidencescore'])),
-                _miniDetail('Date', formatScanSessionDate(scan['scandate'])),
-                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Column(
+                    children: [
+                      _miniDetail(
+                        'Confidence',
+                        safeText(scan['confidencescore']),
+                      ),
+                      _miniDetail(
+                        'Scan Date',
+                        formatScanSessionDate(scan['scandate']),
+                      ),
+                      _miniDetail('Total Images', imageItems.length.toString()),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showImageModal(context, imageUrl),
+                      child: FilledButton.icon(
+                        onPressed: imageItems.isEmpty
+                            ? null
+                            : () => _showImageModal(context, imageItems),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF111827),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                         icon: const Icon(Icons.image_outlined, size: 18),
-                        label: const Text('Image'),
+                        label: const Text(
+                          'View Images',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _showGpsModal(context, gps),
-                        icon: const Icon(
-                          Icons.location_on_outlined,
-                          size: 18,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF2563EB),
+                          side: const BorderSide(color: Color(0xFFBFDBFE)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                        label: const Text('GPS'),
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        label: const Text(
+                          'View Map',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
                   ],
@@ -365,74 +952,282 @@ class _ScanCard extends StatelessWidget {
     );
   }
 
-  void _showImageModal(BuildContext context, String imageUrl) {
+  void _showImageModal(
+    BuildContext context,
+    List<ScanImageItem> imageItems, {
+    int initialIndex = 0,
+  }) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Scan Image'),
-        content: SizedBox(
-          width: 620,
-          height: 520,
-          child: imageUrl.isEmpty
-              ? const Center(child: Text('No image URL available.'))
-              : Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) {
-                    return const Center(
-                      child: Text('Unable to load image.'),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+      builder: (_) => _BoundingBoxImageDialog(
+        imageItems: imageItems,
+        initialIndex: initialIndex,
       ),
     );
   }
 
   void _showGpsModal(BuildContext context, dynamic gps) {
     final gpsText = formatGps(gps);
+    final gpsPoint = parseGpsPoint(gps);
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Scan GPS Location'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titlePadding: EdgeInsets.zero,
+        contentPadding: EdgeInsets.zero,
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        title: Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Row(
             children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 48,
-                color: Color(0xFF2563EB),
-              ),
-              const SizedBox(height: 12),
-              SelectableText(
-                gpsText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF111827),
-                  height: 1.45,
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDBEAFE),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.map_outlined,
+                  color: Color(0xFF2563EB),
+                  size: 23,
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Copy the coordinates above and paste them into Google Maps if needed.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan GPS Location',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Location captured during scan submission',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+        ),
+        content: SizedBox(
+          width: 760,
+          height: 560,
+          child: gpsPoint == null
+              ? Center(
+                  child: Container(
+                    width: 440,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.location_off_outlined,
+                          size: 54,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'No valid GPS location available',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFF111827),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SelectableText(
+                          gpsText,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.location_on_outlined,
+                                color: Color(0xFF2563EB),
+                                size: 21,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Captured Coordinates',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF6B7280),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  SelectableText(
+                                    '${gpsPoint.latitude}, ${gpsPoint.longitude}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF111827),
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                final uri = Uri.parse(
+                                  'https://www.google.com/maps/search/?api=1&query=${gpsPoint.latitude},${gpsPoint.longitude}',
+                                );
+
+                                await launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF2563EB),
+                                side: const BorderSide(
+                                  color: Color(0xFFBFDBFE),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.open_in_new_rounded,
+                                size: 17,
+                              ),
+                              label: const Text(
+                                'Google Maps',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x12000000),
+                                blurRadius: 18,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: FlutterMap(
+                              options: MapOptions(
+                                initialCenter: LatLng(
+                                  gpsPoint.latitude,
+                                  gpsPoint.longitude,
+                                ),
+                                initialZoom: 17,
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate:
+                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName:
+                                      'com.example.cpbaivision_admin',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: LatLng(
+                                        gpsPoint.latitude,
+                                        gpsPoint.longitude,
+                                      ),
+                                      width: 58,
+                                      height: 58,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x33000000),
+                                              blurRadius: 10,
+                                              offset: Offset(0, 4),
+                                            ),
+                                          ],
+                                          border: Border.all(
+                                            color: const Color(0xFFFEE2E2),
+                                            width: 3,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.location_pin,
+                                          size: 38,
+                                          color: Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
         ),
         actions: [
           TextButton(
@@ -476,16 +1271,179 @@ class _ScanCard extends StatelessWidget {
   }
 }
 
+class _BoundingBoxImageDialog extends StatefulWidget {
+  final List<ScanImageItem> imageItems;
+  final int initialIndex;
+
+  const _BoundingBoxImageDialog({
+    required this.imageItems,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_BoundingBoxImageDialog> createState() =>
+      _BoundingBoxImageDialogState();
+}
+
+class _BoundingBoxImageDialogState extends State<_BoundingBoxImageDialog> {
+  bool showBoxes = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageItems = widget.imageItems;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      title: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Scan Images',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+          Row(
+            children: [
+              const Text(
+                'Bounding boxes',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF374151),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Switch(
+                value: showBoxes,
+                onChanged: (value) {
+                  setState(() => showBoxes = value);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 820,
+        height: 600,
+        child: imageItems.isEmpty
+            ? const Center(child: Text('No image URL available.'))
+            : DefaultTabController(
+                length: imageItems.length,
+                initialIndex: widget.initialIndex,
+                child: Column(
+                  children: [
+                    if (imageItems.length > 1)
+                      TabBar(
+                        isScrollable: true,
+                        labelColor: const Color(0xFF111827),
+                        unselectedLabelColor: const Color(0xFF6B7280),
+                        tabs: imageItems.map((item) {
+                          final podLabel = item.podIndex <= 0
+                              ? 'Image ${item.imageIndex + 1}'
+                              : 'Pod ${item.podIndex} • Img ${item.imageIndex + 1}';
+
+                          return Tab(text: podLabel);
+                        }).toList(),
+                      ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: TabBarView(
+                        children: imageItems.map((item) {
+                          return Column(
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF9FAFB),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.center_focus_strong_outlined,
+                                      size: 18,
+                                      color: Color(0xFF16A34A),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${item.boxes.length} detected egg box(es)',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Expanded(
+                                child: InteractiveViewer(
+                                  minScale: 0.5,
+                                  maxScale: 5,
+                                  child: Center(
+                                    child: AspectRatio(
+                                      aspectRatio: 1,
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Image.network(
+                                            item.imageUrl,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_, __, ___) {
+                                              return const Center(
+                                                child: Text(
+                                                  'Unable to load image.',
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          if (showBoxes &&
+                                              item.boxes.isNotEmpty)
+                                            CustomPaint(
+                                              painter: AdminBoxPainter(
+                                                item.boxes,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
   final Widget? trailing;
 
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.trailing,
-  });
+  const _SectionCard({required this.title, required this.child, this.trailing});
 
   @override
   Widget build(BuildContext context) {
